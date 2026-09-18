@@ -1,0 +1,39 @@
+# Base compose file: shared service definitions. Combine with -dev or -prod overrides.
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+    restart: unless-stopped
+    env_file: ./backend/.env
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: ../infrastructure/docker/ai.Dockerfile
+    restart: unless-stopped
+    env_file: ./ai-service/.env
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:

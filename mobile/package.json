@@ -1,0 +1,29 @@
+{
+  "name": "econexus-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@react-navigation/bottom-tabs": "^6.5.20",
+    "@react-navigation/native": "^6.1.17",
+    "@react-navigation/native-stack": "^6.9.26",
+    "@types/react": "~19.2.4",
+    "axios": "^1.7.2",
+    "expo": "~57.0.22",
+    "expo-image-picker": "~57.0.17",
+    "expo-location": "~57.0.17",
+    "expo-notifications": "~57.0.18",
+    "react": "19.2.3",
+    "react-native": "^0.86.3",
+    "react-native-maps": "1.27.2",
+    "socket.io-client": "^4.7.5",
+    "typescript": "~6.0.3",
+    "zustand": "^4.5.4"
+  }
+}
