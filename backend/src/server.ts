@@ -1,20 +1,21 @@
-import dotenv from "dotenv";
-dotenv.config();
+import http from 'http';
+import { Server } from 'socket.io';
+import app from './app';
+import { env } from './config/env';
 
-import http from "http";
-import { Server } from "socket.io";
-import app from "./app";
-import { registerPickupSocket } from "./sockets/pickup.socket";
-
-const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: process.env.SOCKET_CORS_ORIGIN },
+  cors: { origin: false },
 });
 
-registerPickupSocket(io);
+io.on('connection', (socket) => {
+  console.log(`[Socket.io] Client connected: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+  });
+});
 
-server.listen(PORT, () => {
-  console.log(`EcoNexus backend listening on port ${PORT}`);
+server.listen(env.PORT, () => {
+  console.log(`[EcoNexus Backend] Server listening on port ${env.PORT} in ${env.NODE_ENV} mode`);
 });
