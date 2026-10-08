@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import routes from './routes';
+import { apiLimiter } from './middleware/rateLimiter.middleware';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -12,9 +13,8 @@ app.use(cors({ origin: false }));
 app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 
-app.use('/api', routes);
+app.use('/api', apiLimiter, routes);
 
 app.use(errorHandler);
 
 export default app;
-
