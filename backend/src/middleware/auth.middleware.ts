@@ -55,3 +55,29 @@ export async function authenticateToken(req: Request, _res: Response, next: Next
 }
 
 export const authenticate = authenticateToken;
+
+export function authorize(...roles: string[]) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      return next(new AppError(401, 'User not authenticated', 'UNAUTHORIZED'));
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return next(new AppError(403, 'Insufficient permissions', 'FORBIDDEN'));
+    }
+
+    next();
+  };
+}
+
+export function requireActive(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) {
+    return next(new AppError(401, 'User not authenticated', 'UNAUTHORIZED'));
+  }
+
+  if (req.user.status !== 'ACTIVE') {
+    return next(new AppError(403, 'Account must be active to perform this action', 'ACCOUNT_NOT_ACTIVE'));
+  }
+
+  next();
+}
