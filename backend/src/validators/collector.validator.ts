@@ -11,6 +11,7 @@ export const vehicleTypeSchema = z.enum([
 export const updateCollectorProfileSchema = z.object({
   body: z.object({
     vehicleType: vehicleTypeSchema.optional(),
+    vehicleCapacity: z.number().positive('Vehicle capacity must be positive').optional(),
     licensePlate: z.string().min(2).max(20).optional(),
     serviceAreaRadiusKm: z.number().positive().max(100).optional(),
     isAvailable: z.boolean().optional(),
@@ -19,14 +20,20 @@ export const updateCollectorProfileSchema = z.object({
 
 export const updateCollectorLocationSchema = z.object({
   body: z.object({
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
+    latitude: z
+      .number()
+      .min(-90, 'Latitude must be between -90 and 90')
+      .max(90, 'Latitude must be between -90 and 90'),
+    longitude: z
+      .number()
+      .min(-180, 'Longitude must be between -180 and 180')
+      .max(180, 'Longitude must be between -180 and 180'),
   }),
 });
 
 export const acceptPickupRequestSchema = z.object({
   params: z.object({
-    pickupId: z.string().uuid('Invalid pickup ID format'),
+    id: z.string().uuid('Invalid pickup ID format'),
   }),
 });
 
