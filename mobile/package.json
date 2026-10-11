@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.9.1",
     "@react-navigation/bottom-tabs": "^6.5.20",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
@@ -19,11 +20,17 @@
     "expo-image-picker": "~57.0.17",
     "expo-location": "~57.0.17",
     "expo-notifications": "~57.0.18",
+    "expo-secure-store": "^57.0.4",
+    "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
+    "react-hook-form": "^7.89.0",
     "react-native": "^0.86.3",
     "react-native-maps": "1.27.2",
+    "react-native-safe-area-context": "^5.10.1",
+    "react-native-screens": "^4.29.0",
     "socket.io-client": "^4.7.5",
     "typescript": "~6.0.3",
+    "zod": "^3.25.76",
     "zustand": "^4.5.4"
   },
   "devDependencies": {
