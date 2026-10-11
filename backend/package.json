@@ -9,7 +9,9 @@
     "start": "node dist/server.js",
     "test": "jest",
     "migrate": "ts-node src/scripts/migrate.ts",
-    "migrate:prod": "node dist/scripts/migrate.js"
+    "migrate:prod": "node dist/scripts/migrate.js",
+    "seed:admin": "ts-node src/scripts/seedAdmin.ts",
+    "seed:admin:prod": "node dist/scripts/seedAdmin.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
