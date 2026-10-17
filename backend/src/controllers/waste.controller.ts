@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { validationResult } from "express-validator";
 import { AppError } from "../utils/AppError";
 import * as wasteService from "../services/waste.service";
+import { uploadImageBuffer } from "../services/storage.service";
 
 function assertValid(req: Request) {
   const errors = validationResult(req);
@@ -71,6 +72,16 @@ export async function removeListing(req: Request, res: Response, next: NextFunct
     const ok = await wasteService.deleteListing(req.params.id, req.user!.id);
     if (!ok) throw new AppError(404, "Listing not found or can no longer be deleted", "NOT_FOUND");
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadWasteImage(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) throw new AppError(400, "image file is required", "NO_FILE");
+    const url = await uploadImageBuffer(req.file.buffer);
+    res.status(201).json({ success: true, data: { url } });
   } catch (err) {
     next(err);
   }
