@@ -1,12 +1,77 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { validationResult } from "express-validator";
+import { AppError } from "../utils/AppError";
 import * as wasteService from "../services/waste.service";
 
-export async function listCategories(req: Request, res: Response) {
+function assertValid(req: Request) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const e = errors.array()[0] as any;
+    throw new AppError(400, `${e.path}: ${e.msg}`, "VALIDATION_ERROR");
+  }
+}
+
+function mapDbError(err: any): never {
+  if (err?.code === "23503") throw new AppError(400, "Invalid category", "INVALID_CATEGORY");
+  throw err;
+}
+
+export async function listCategories(_req: Request, res: Response, next: NextFunction) {
   try {
-    const categories = await wasteService.getCategories();
-    res.json({ success: true, data: categories });
+    res.json({ success: true, data: await wasteService.getCategories() });
   } catch (err) {
-    console.error("listCategories failed:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    next(err);
+  }
+}
+
+export async function createListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const listing = await wasteService.createListing(req.user!.id, req.body).catch(mapDbError);
+    res.status(201).json({ success: true, data: listing });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function myListings(req: Request, res: Response, next: NextFunction) {
+  try {
+    const scope = req.query.scope === "history" ? "history" : "active";
+    res.json({ success: true, data: await wasteService.getMyListings(req.user!.id, scope) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const listing = await wasteService.getListingById(req.params.id, req.user!.id);
+    if (!listing) throw new AppError(404, "Listing not found", "NOT_FOUND");
+    res.json({ success: true, data: listing });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const listing = await wasteService.updateListing(req.params.id, req.user!.id, req.body).catch(mapDbError);
+    if (!listing) throw new AppError(404, "Listing not found or can no longer be edited", "NOT_FOUND");
+    res.json({ success: true, data: listing });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeListing(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const ok = await wasteService.deleteListing(req.params.id, req.user!.id);
+    if (!ok) throw new AppError(404, "Listing not found or can no longer be deleted", "NOT_FOUND");
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
   }
 }
