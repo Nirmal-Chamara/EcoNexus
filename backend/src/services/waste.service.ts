@@ -119,3 +119,94 @@ export async function deleteListing(id: string, userId: string) {
   );
   return (r.rowCount ?? 0) > 0;
 }
+
+export interface RequestInput {
+  listingId: string;
+  pickupAddress: string;
+  preferredTime?: string;
+  notes?: string;
+}
+
+const REQUEST_SELECT = `
+  SELECT r.id, r.status, r.pickup_address, r.preferred_time, r.notes,
+         r.collector_id, r.created_at, r.updated_at,
+         l.id AS listing_id, l.title AS listing_title, l.quantity, l.unit,
+         c.name AS category_name
+  FROM pickup_requests r
+  JOIN waste_listings l ON l.id = r.listing_id
+  JOIN waste_categories c ON c.id = l.category_id
+`;
+
+export async function getRequestById(id: string, userId: string) {
+  const result = await pool.query(
+    `${REQUEST_SELECT} WHERE r.id = $1 AND r.requester_id = $2`,
+    [id, userId]
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function getMyRequests(userId: string) {
+  const result = await pool.query(
+    `${REQUEST_SELECT} WHERE r.requester_id = $1 ORDER BY r.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+}
+
+// Creates the request and marks the listing as "requested" in one step.
+export async function createRequest(userId: string, d: RequestInput) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const l = await client.query(
+      `UPDATE waste_listings SET status='requested', updated_at=NOW()
+       WHERE id=$1 AND user_id=$2 AND status='active' RETURNING id`,
+      [d.listingId, userId]
+    );
+    if (l.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    const r = await client.query(
+      `INSERT INTO pickup_requests
+         (listing_id, requester_id, pickup_address, preferred_time, notes)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [d.listingId, userId, d.pickupAddress, d.preferredTime ?? null, d.notes ?? null]
+    );
+    await client.query("COMMIT");
+    return getRequestById(r.rows[0].id, userId);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// Only a "pending" request can be cancelled; the listing becomes "active" again.
+export async function cancelRequest(id: string, userId: string) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const r = await client.query(
+      `UPDATE pickup_requests SET status='cancelled', updated_at=NOW()
+       WHERE id=$1 AND requester_id=$2 AND status='pending' RETURNING listing_id`,
+      [id, userId]
+    );
+    if (r.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    await client.query(
+      `UPDATE waste_listings SET status='active', updated_at=NOW() WHERE id=$1`,
+      [r.rows[0].listing_id]
+    );
+    await client.query("COMMIT");
+    return getRequestById(id, userId);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}

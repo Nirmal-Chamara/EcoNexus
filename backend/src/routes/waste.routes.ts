@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as c from "../controllers/waste.controller";
 import { authenticateToken, authorize, requireActive } from "../middleware/auth.middleware";
-import { idRule, listingRules } from "../validators/waste.validator";
+import { idRule, listingRules, requestRules } from "../validators/waste.validator";
 import { uploadImage } from "../middleware/upload.middleware";
 
 const router = Router();
@@ -15,5 +15,9 @@ router.get("/listings/:id", userOnly, idRule, c.getListing);
 router.put("/listings/:id", userOnly, idRule, listingRules, c.updateListing);
 router.delete("/listings/:id", userOnly, idRule, c.removeListing);
 router.post("/uploads", userOnly, uploadImage, c.uploadWasteImage);
+router.post("/requests", userOnly, requestRules, c.createRequest);
+router.get("/requests/mine", userOnly, c.myRequests);        // keep above /requests/:id
+router.get("/requests/:id", userOnly, idRule, c.getRequest);
+router.put("/requests/:id/cancel", userOnly, idRule, c.cancelRequest);
 
 export default router;

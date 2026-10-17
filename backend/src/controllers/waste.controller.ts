@@ -86,3 +86,48 @@ export async function uploadWasteImage(req: Request, res: Response, next: NextFu
     next(err);
   }
 }
+
+export async function createRequest(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const request = await wasteService.createRequest(req.user!.id, req.body);
+    if (!request) {
+      throw new AppError(404, "Listing not found or already has an open request", "LISTING_NOT_AVAILABLE");
+    }
+    res.status(201).json({ success: true, data: request });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function myRequests(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json({ success: true, data: await wasteService.getMyRequests(req.user!.id) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getRequest(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const request = await wasteService.getRequestById(req.params.id, req.user!.id);
+    if (!request) throw new AppError(404, "Request not found", "NOT_FOUND");
+    res.json({ success: true, data: request });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function cancelRequest(req: Request, res: Response, next: NextFunction) {
+  try {
+    assertValid(req);
+    const request = await wasteService.cancelRequest(req.params.id, req.user!.id);
+    if (!request) {
+      throw new AppError(404, "Request not found or can no longer be cancelled", "NOT_FOUND");
+    }
+    res.json({ success: true, data: request });
+  } catch (err) {
+    next(err);
+  }
+}

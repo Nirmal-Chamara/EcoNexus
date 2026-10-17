@@ -12,3 +12,14 @@ export const listingRules = [
   body("imageUrls").optional().isArray({ max: 5 }),
   body("imageUrls.*").isURL(),
 ];
+
+export const requestRules = [
+  body("listingId").isUUID(),
+  body("pickupAddress").trim().isLength({ min: 5, max: 300 }),
+  body("preferredTime")
+    .optional()
+    .isISO8601()
+    .custom((v) => new Date(v) > new Date())
+    .withMessage("must be in the future"),
+  body("notes").optional().trim().isLength({ max: 500 }),
+];
