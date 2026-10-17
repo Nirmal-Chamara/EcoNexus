@@ -25,6 +25,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.12.1",
+    "multer": "^2.4.0",
     "pg": "^8.12.0",
     "socket.io": "^4.7.5",
     "zod": "^4.6.5"
@@ -36,6 +37,7 @@
     "@types/jest": "^29.5.12",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.10",
+    "@types/multer": "^2.3.0",
     "@types/node": "^20.14.9",
     "@types/pg": "^8.11.6",
     "@types/supertest": "^7.2.1",
