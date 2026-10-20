@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import PendingVerificationScreen from '../screens/auth/PendingVerificationScreen';
 import RoleGate from './RoleGate';
-import LoadingSpinner from '../components/common/LoadingSpinner';
+import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 /**
  * RootNavigator – decides which navigation flow to render based on authentication state.
