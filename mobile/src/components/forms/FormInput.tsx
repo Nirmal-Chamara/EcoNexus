@@ -1,13 +1,6 @@
 import React, { forwardRef, useState } from 'react';
-import {
-  View,
-  TextInput,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInputProps,
-  ViewStyle,
-} from 'react-native';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import type { TextInputProps, ViewStyle } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -41,6 +34,7 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             autoCapitalize={isPassword ? 'none' : rest.autoCapitalize}
+            autoCorrect={isPassword ? false : rest.autoCorrect}
             {...rest}
           />
           {isPassword && (
@@ -62,8 +56,8 @@ export const FormInput = forwardRef<TextInput, FormInputProps>(
 FormInput.displayName = 'FormInput';
 
 const styles = StyleSheet.create({
-  container:    { marginBottom: 16 },
-  label:        { ...typography.label, color: colors.textSecondary, marginBottom: 6 },
+  container: { marginBottom: 16 },
+  label: { ...typography.label, color: colors.textSecondary, marginBottom: 6 },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -75,7 +69,7 @@ const styles = StyleSheet.create({
     height: 52,
   },
   inputFocused: { borderColor: colors.borderFocus },
-  inputError:   { borderColor: colors.error },
+  inputError: { borderColor: colors.error },
   input: {
     flex: 1,
     ...typography.body,
@@ -83,7 +77,7 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   eyeButton: { paddingLeft: 8 },
-  eyeText:   { fontSize: 16 },
+  eyeText: { fontSize: 16 },
   errorText: {
     ...typography.caption,
     color: colors.error,
