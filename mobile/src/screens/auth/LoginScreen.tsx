@@ -1,4 +1,6 @@
 import React, { useRef } from 'react';
+import type { z } from 'zod';
+import type { TextInput } from 'react-native';
 import {
   View,
   Text,
@@ -7,9 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  Switch,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAuth } from '../../hooks/useAuth';
@@ -17,12 +19,9 @@ import { Button } from '../../components/common/Button';
 import { FormInput } from '../../components/forms/FormInput';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { loginSchema } from '../../schemas/auth.schema';
 
 // ─── Validation Schema (mirrors backend Zod schema) ──────────────────────────
-const loginSchema = z.object({
-  email:    z.string().min(1, 'Email is required').email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-});
 type LoginForm = z.infer<typeof loginSchema>;
 
 // ─── Navigation Prop Type ─────────────────────────────────────────────────────
@@ -34,7 +33,8 @@ interface Props {
 
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth();
-  const passwordRef = useRef<any>(null);
+  const [keepSignedIn, setKeepSignedIn] = React.useState(true);
+  const passwordRef = useRef<TextInput>(null);
 
   const {
     control,
@@ -48,12 +48,10 @@ export default function LoginScreen({ navigation }: Props) {
 
   const onSubmit = async (data: LoginForm) => {
     try {
-      await signIn({ email: data.email, password: data.password });
+      await signIn({ email: data.email, password: data.password }, keepSignedIn);
       // AuthContext status updates → RootNavigator switches to role navigator automatically
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message || 'Invalid email or password. Please try again.';
-      setError('password', { message });
+    } catch {
+      setError('password', { message: 'Invalid email or password. Please try again.' });
     }
   };
 
@@ -99,7 +97,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Controller
             control={control}
             name="password"
-            render={({ field: { onChange, onBlur, value, ref } }) => (
+            render={({ field: { onChange, onBlur, value } }) => (
               <FormInput
                 ref={passwordRef}
                 label="Password"
@@ -115,12 +113,29 @@ export default function LoginScreen({ navigation }: Props) {
             )}
           />
 
+          <View style={styles.keepSignedInRow}>
+            <Text style={styles.keepSignedInLabel}>Keep me signed in</Text>
+            <Switch
+              value={keepSignedIn}
+              onValueChange={setKeepSignedIn}
+              accessibilityLabel="Keep me signed in"
+              trackColor={{ true: colors.primary, false: colors.border }}
+            />
+          </View>
+
           <Button
             title="Sign In"
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             style={styles.submitButton}
           />
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={() => navigation?.navigate('ForgotPassword')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>Forgot password?</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Footer */}
@@ -136,19 +151,28 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  flex:    { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1, backgroundColor: colors.background },
   container: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 48,
   },
-  header:   { alignItems: 'center', marginBottom: 40 },
-  logo:     { fontSize: 56, marginBottom: 16 },
-  title:    { ...typography.displayMedium, color: colors.textPrimary, marginBottom: 8 },
+  header: { alignItems: 'center', marginBottom: 40 },
+  logo: { fontSize: 56, marginBottom: 16 },
+  title: { ...typography.displayMedium, color: colors.textPrimary, marginBottom: 8 },
   subtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
-  form:         { marginBottom: 24 },
+  form: { marginBottom: 24 },
   submitButton: { marginTop: 8 },
+  forgotPassword: { alignSelf: 'flex-end', paddingVertical: 12, paddingHorizontal: 4 },
+  keepSignedInRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  keepSignedInLabel: { ...typography.body, color: colors.textSecondary },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -156,5 +180,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footerText: { ...typography.body, color: colors.textMuted },
-  link:       { ...typography.bodyMedium, color: colors.primary },
+  link: { ...typography.bodyMedium, color: colors.primary },
 });
