@@ -1,14 +1,11 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { mapApiError } from '../../utils/errorMapper';
 
 /**
  * PendingVerificationScreen
@@ -20,16 +17,34 @@ import { typography } from '../../theme/typography';
  * They cannot access operational routes until an admin approves.
  */
 export default function PendingVerificationScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkStatus = async () => {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await refreshUser();
+    } catch (refreshError: unknown) {
+      setError(mapApiError(refreshError, 'Unable to check your status. Please try again.'));
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const roleLabel =
-    user?.role === 'COLLECTOR'        ? 'Waste Collector' :
-    user?.role === 'RECYCLING_CENTER' ? 'Recycling Center' : '';
+    user?.role === 'COLLECTOR'
+      ? 'Waste Collector'
+      : user?.role === 'RECYCLING_CENTER'
+        ? 'Recycling Center'
+        : '';
 
   return (
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={checkStatus} />}
     >
       {/* Illustration */}
       <View style={styles.iconWrapper}>
@@ -40,8 +55,7 @@ export default function PendingVerificationScreen() {
       <Text style={styles.title}>Verification Pending</Text>
       <Text style={styles.subtitle}>
         Hi <Text style={styles.name}>{user?.name}</Text>! Your{' '}
-        <Text style={styles.role}>{roleLabel}</Text> account has been submitted
-        for admin review.
+        <Text style={styles.role}>{roleLabel}</Text> account has been submitted for admin review.
       </Text>
 
       {/* Info Cards */}
@@ -51,8 +65,8 @@ export default function PendingVerificationScreen() {
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>What happens next?</Text>
             <Text style={styles.cardDesc}>
-              Our admin team will review your registration and verify your credentials.
-              This typically takes 1–2 business days.
+              Our admin team will review your registration and verify your credentials. This
+              typically takes 1–2 business days.
             </Text>
           </View>
         </View>
@@ -64,9 +78,8 @@ export default function PendingVerificationScreen() {
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>You'll be notified</Text>
             <Text style={styles.cardDesc}>
-              A notification will be sent to{' '}
-              <Text style={styles.email}>{user?.email}</Text> once your account
-              is approved or if additional information is required.
+              A notification will be sent to <Text style={styles.email}>{user?.email}</Text> once
+              your account is approved or if additional information is required.
             </Text>
           </View>
         </View>
@@ -78,8 +91,8 @@ export default function PendingVerificationScreen() {
           <View style={styles.cardText}>
             <Text style={styles.cardTitle}>Why verification?</Text>
             <Text style={styles.cardDesc}>
-              We verify all collectors and recycling centers to ensure a trusted,
-              safe platform for the entire EcoNexus community.
+              We verify all collectors and recycling centers to ensure a trusted, safe platform for
+              the entire EcoNexus community.
             </Text>
           </View>
         </View>
@@ -87,11 +100,17 @@ export default function PendingVerificationScreen() {
 
       {/* Action */}
       <Button
-        title="Sign Out"
-        variant="secondary"
-        onPress={signOut}
+        title="Check status"
+        onPress={checkStatus}
+        loading={refreshing}
         style={styles.signOutButton}
       />
+      {error ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+      <Button title="Sign Out" variant="secondary" onPress={signOut} style={styles.signOutButton} />
     </ScrollView>
   );
 }
@@ -115,12 +134,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.warning,
   },
-  icon:     { fontSize: 44 },
-  title:    { ...typography.h1, color: colors.textPrimary, marginBottom: 12, textAlign: 'center' },
-  subtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center', marginBottom: 32, lineHeight: 24 },
-  name:     { color: colors.primary, fontWeight: '600' },
-  role:     { color: colors.warning, fontWeight: '600' },
-  email:    { color: colors.primaryLight },
+  icon: { fontSize: 44 },
+  title: { ...typography.h1, color: colors.textPrimary, marginBottom: 12, textAlign: 'center' },
+  subtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  name: { color: colors.primary, fontWeight: '600' },
+  role: { color: colors.warning, fontWeight: '600' },
+  email: { color: colors.primaryLight },
+  error: { ...typography.caption, color: colors.error, textAlign: 'center', marginTop: 12 },
 
   card: {
     width: '100%',
@@ -131,11 +157,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  cardRow:  { flexDirection: 'row', gap: 14 },
+  cardRow: { flexDirection: 'row', gap: 14 },
   cardIcon: { fontSize: 22, marginTop: 2 },
   cardText: { flex: 1 },
   cardTitle: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: 4 },
-  cardDesc:  { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
+  cardDesc: { ...typography.caption, color: colors.textMuted, lineHeight: 18 },
 
   signOutButton: { marginTop: 28 },
 });
