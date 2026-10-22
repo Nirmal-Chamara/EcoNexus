@@ -6,10 +6,13 @@ import React, {
   useReducer,
   useRef,
 } from 'react';
-import { AuthUser, LoginInput, RegisterInput } from '../types/user';
+import axios from 'axios';
+import type { AuthUser, LoginInput, RegisterInput } from '../types/user';
 import { authService } from '../services/auth.service';
 import { tokenStorage } from '../services/tokenStorage';
 import { registerForceLogoutHandler } from '../services/api';
+import { userService } from '../services/user.service';
+import { authenticateBiometric, canUseBiometrics } from '../services/biometric';
 
 // ─────────────────────────────────────────────
 // State & Action Types
@@ -52,12 +55,18 @@ interface AuthContextValue {
   status: AuthStatus;
   /** Authenticated user profile, or null when signed out */
   user: AuthUser | null;
-  /** Sign in with email and password */
-  signIn: (input: LoginInput) => Promise<void>;
+  /**
+   * Sign in with email and password.
+   * @param keepSignedIn - If false, refresh token is kept in memory only
+   *   (session ends when the app is killed). Defaults to true.
+   */
+  signIn: (input: LoginInput, keepSignedIn?: boolean) => Promise<void>;
   /** Register a new account */
-  signUp: (input: RegisterInput) => Promise<void>;
+  signUp: (input: RegisterInput, keepSignedIn?: boolean) => Promise<void>;
   /** Sign out the current user and revoke tokens */
   signOut: () => Promise<void>;
+  /** Reload the authenticated profile from the server. */
+  refreshUser: () => Promise<void>;
   /** Update the local user profile state after a profile edit */
   updateUser: (updatedUser: Partial<AuthUser>) => void;
 }
@@ -84,28 +93,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Stable ref for user to avoid stale closure in updateUser
   const userRef = useRef<AuthUser | null>(null);
-  userRef.current = state.user;
+  useEffect(() => {
+    userRef.current = state.user;
+  }, [state.user]);
 
   // ─── Session Restoration on App Boot ───────
   useEffect(() => {
     async function restoreSession(): Promise<void> {
       try {
-        const accessToken = await tokenStorage.getAccessToken();
         const refreshToken = await tokenStorage.getRefreshToken();
 
-        if (!accessToken || !refreshToken) {
+        // Memory-only sessions intentionally end when the app process exits.
+        if (!refreshToken) {
           dispatch({ type: 'LOADING_DONE_NO_SESSION' });
           return;
         }
 
-        // Attempt to fetch the current user profile using stored access token
-        const { apiClient } = await import('../services/api');
-        const response = await apiClient.get<{ user: AuthUser }>('/users/me');
-        dispatch({ type: 'RESTORE_SESSION', user: response.data.user });
-      } catch {
-        // Token is invalid or expired; the axios interceptor handles refresh.
-        // If it reaches here, all refresh attempts also failed.
-        await tokenStorage.clearTokens();
+        if (await tokenStorage.getBiometricEnabled()) {
+          if (await canUseBiometrics()) {
+            const unlocked = await authenticateBiometric('Unlock your EcoNexus session');
+            if (!unlocked) {
+              dispatch({ type: 'LOADING_DONE_NO_SESSION' });
+              return;
+            }
+          } else {
+            await tokenStorage.setBiometricEnabled(false);
+          }
+        }
+
+        const tokens = await authService.refresh(refreshToken);
+        await tokenStorage.saveTokens(
+          tokens.accessToken,
+          tokens.refreshToken,
+          await tokenStorage.getKeepSignedIn()
+        );
+        const user = await userService.getMe();
+        dispatch({ type: 'RESTORE_SESSION', user });
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          await tokenStorage.clearTokens();
+        }
         dispatch({ type: 'LOADING_DONE_NO_SESSION' });
       }
     }
@@ -124,16 +151,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   // ─── Sign In ────────────────────────────────
-  const signIn = useCallback(async (input: LoginInput): Promise<void> => {
+  const signIn = useCallback(async (input: LoginInput, keepSignedIn = true): Promise<void> => {
     const data = await authService.login(input);
-    await tokenStorage.saveTokens(data.accessToken, data.refreshToken);
+    await tokenStorage.setKeepSignedIn(keepSignedIn);
+    await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
     dispatch({ type: 'SIGN_IN', user: data.user });
   }, []);
 
   // ─── Sign Up ────────────────────────────────
-  const signUp = useCallback(async (input: RegisterInput): Promise<void> => {
+  const signUp = useCallback(async (input: RegisterInput, keepSignedIn = true): Promise<void> => {
     const data = await authService.register(input);
-    await tokenStorage.saveTokens(data.accessToken, data.refreshToken);
+    await tokenStorage.setKeepSignedIn(keepSignedIn);
+    await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
     dispatch({ type: 'SIGN_IN', user: data.user });
   }, []);
 
@@ -149,6 +178,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await tokenStorage.clearTokens();
       dispatch({ type: 'SIGN_OUT' });
     }
+  }, []);
+
+  const refreshUser = useCallback(async (): Promise<void> => {
+    const user = await userService.getMe();
+    dispatch({ type: 'RESTORE_SESSION', user });
   }, []);
 
   // ─── Update Local User Profile ──────────────
@@ -167,6 +201,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signUp,
     signOut,
+    refreshUser,
     updateUser,
   };
 
