@@ -3,6 +3,26 @@ import { AuthService } from '../services/auth.service';
 import { AppError } from '../utils/AppError';
 
 export class AuthController {
+  static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await AuthService.requestPasswordReset(req.body.email);
+      res.status(202).json({
+        message: 'If an account exists for that email, a reset code will be sent.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await AuthService.resetPassword(req.body.token, req.body.newPassword);
+      res.status(200).json({ message: 'Password reset successfully. Please sign in.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * POST /api/auth/register
    */
