@@ -14,6 +14,18 @@ export const registerSchema = z.object({
       .regex(/[0-9]/, 'Password must contain at least one number'),
     phone: z.string().optional(),
     role: userRoleSchema.default('USER'),
+    organizationName: z.string().trim().min(2).max(150).optional(),
+  }).superRefine((body, ctx) => {
+    if (
+      (body.role === 'COLLECTOR' || body.role === 'RECYCLING_CENTER') &&
+      !body.organizationName
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['organizationName'],
+        message: 'Organization name is required for partner registration',
+      });
+    }
   }),
 });
 
@@ -47,6 +59,8 @@ export const resetPasswordConfirmSchema = z.object({
       .regex(/[0-9]/, 'Password must contain at least one number'),
   }),
 });
+
+export const forgotPasswordSchema = resetPasswordRequestSchema;
 
 export type RegisterInput = z.infer<typeof registerSchema>['body'];
 export type LoginInput = z.infer<typeof loginSchema>['body'];
