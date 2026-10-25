@@ -76,6 +76,15 @@ export class UserController {
         data: result.rows[0],
       });
     } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === '23505'
+      ) {
+        next(new AppError(409, 'Phone number is already in use', 'PHONE_EXISTS'));
+        return;
+      }
       next(error);
     }
   }

@@ -11,4 +11,12 @@ export const env = {
   REFRESH_TOKEN_TTL_DAYS: parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '14', 10),
   BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
+  ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@econexus.com',
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'AdminPass123!',
+  ADMIN_NAME: process.env.ADMIN_NAME || 'System Administrator',
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || '',
 };
