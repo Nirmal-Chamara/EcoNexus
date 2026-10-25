@@ -1,42 +1,26 @@
-// RoleGate.tsx
 import React from 'react';
+import type { ReactNode } from 'react';
+import type { AccountStatus, UserRole } from '../types/user';
 import { useAuth } from '../context/AuthContext';
-import AuthNavigator from './AuthNavigator';
-import UserNavigator from './UserNavigator';
-import CollectorNavigator from './CollectorNavigator';
-import RecyclingCenterNavigator from './RecyclingCenterNavigator';
-import AdminNavigator from './AdminNavigator';
-import LoadingSpinner from '../components/common/LoadingSpinner';
 
-/**
- * RoleGate – decides which navigation flow to render based on authentication state
- * and the user's role.
- */
-export default function RoleGate() {
-  const { status, user } = useAuth();
+interface RoleGateProps {
+  allow: UserRole[];
+  fallback?: ReactNode;
+  children: ReactNode;
+}
 
-  if (status === 'loading') {
-    // While restoring session or checking auth status, show a spinner.
-    return <LoadingSpinner />;
-  }
+export function useHasRole(role: UserRole | UserRole[]): boolean {
+  const { user } = useAuth();
+  const allowedRoles = Array.isArray(role) ? role : [role];
+  return user !== null && allowedRoles.includes(user.role);
+}
 
-  if (status === 'signedOut' || !user) {
-    // No active session – route to authentication flow.
-    return <AuthNavigator />;
-  }
+export function useHasAccountStatus(status: AccountStatus | AccountStatus[]): boolean {
+  const { user } = useAuth();
+  const allowedStatuses = Array.isArray(status) ? status : [status];
+  return user !== null && allowedStatuses.includes(user.status);
+}
 
-  // User is signed in – render the appropriate role‑based tab navigator.
-  switch (user.role) {
-    case 'USER':
-      return <UserNavigator />;
-    case 'COLLECTOR':
-      return <CollectorNavigator />;
-    case 'RECYCLING_CENTER':
-      return <RecyclingCenterNavigator />;
-    case 'ADMIN':
-      return <AdminNavigator />;
-    default:
-      // Fallback – should never happen, but render auth flow for safety.
-      return <AuthNavigator />;
-  }
+export default function RoleGate({ allow, fallback = null, children }: RoleGateProps) {
+  return useHasRole(allow) ? <>{children}</> : <>{fallback}</>;
 }

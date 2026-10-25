@@ -3,16 +3,17 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import DashboardScreen from '../screens/admin/DashboardScreen';
-import UsersScreen from '../screens/admin/UsersScreen';
 import ReportsScreen from '../screens/admin/ReportsScreen';
+import { UsersStackNavigator, VerificationsStackNavigator } from './AdminStackNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type AdminTabParamList = {
-  Dashboard: undefined;
-  Users:     undefined;
-  Reports:   undefined;
-  ProfileTab: undefined;
+  Dashboard:     undefined;
+  Users:         undefined;
+  Verifications: undefined;
+  Reports:       undefined;
+  ProfileTab:    undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
@@ -51,10 +52,18 @@ export default function AdminNavigator() {
       />
       <Tab.Screen
         name="Users"
-        component={UsersScreen}
+        component={UsersStackNavigator}
         options={{
           tabBarLabel: 'Users',
           tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Verifications"
+        component={VerificationsStackNavigator}
+        options={{
+          tabBarLabel: 'Verify',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="✅" focused={focused} />,
         }}
       />
       <Tab.Screen

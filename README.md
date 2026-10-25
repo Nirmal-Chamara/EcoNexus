@@ -17,6 +17,10 @@
 cd mobile && npm start
 ```
 
+For the mobile app, set `EXPO_PUBLIC_API_URL` in `mobile/.env` to a URL the device can reach
+(use the computer's LAN IP for a physical device). See [mobile auth integration](docs/mobile-auth.md)
+for authentication, role navigation, and account recovery details.
+
 ## Environment files
 Every service has its own `.env.example`:
 - `mobile/.env.example`      API/socket URLs, Google Maps key, Firebase client config, Cloudinary preset

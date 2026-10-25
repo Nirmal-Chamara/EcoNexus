@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import RoleGate from './RoleGate';
+import RoleNavigator from './RoleNavigator';
 
 export default function AppNavigator() {
   return (
     <NavigationContainer>
-      <RoleGate />
+      <RoleNavigator />
     </NavigationContainer>
   );
 }

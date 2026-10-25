@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -20,14 +20,11 @@ import { FormInput } from '../../components/forms/FormInput';
 import { Button } from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { mapApiError } from '../../utils/errorMapper';
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 const editProfileSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(80, 'Name is too long')
-    .trim(),
+  name: z.string().min(2, 'Name must be at least 2 characters').max(80, 'Name is too long').trim(),
   phone: z
     .string()
     .regex(/^\+?[0-9\s\-()]{7,20}$/, 'Enter a valid phone number')
@@ -47,11 +44,12 @@ export default function EditProfileScreen() {
     control,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isDirty },
   } = useForm<EditProfileForm>({
     resolver: zodResolver(editProfileSchema),
     defaultValues: {
-      name:  user?.name  ?? '',
+      name: user?.name ?? '',
       phone: user?.phone ?? '',
     },
   });
@@ -59,7 +57,7 @@ export default function EditProfileScreen() {
   // Re-seed form when user changes (e.g. after a hot reload)
   useEffect(() => {
     reset({ name: user?.name ?? '', phone: user?.phone ?? '' });
-  }, [user?.name, user?.phone]);
+  }, [reset, user?.name, user?.phone]);
 
   const onSubmit = async (data: EditProfileForm) => {
     if (!isDirty) {
@@ -69,7 +67,7 @@ export default function EditProfileScreen() {
     setIsSaving(true);
     try {
       const updated = await userService.updateMe({
-        name:  data.name.trim(),
+        name: data.name.trim(),
         phone: data.phone?.trim() || undefined,
       });
       // Sync AuthContext so the app reflects the changes instantly
@@ -77,10 +75,15 @@ export default function EditProfileScreen() {
       Alert.alert('Profile Updated', 'Your profile has been saved successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? 'Failed to update profile. Please try again.';
-      Alert.alert('Error', message);
+    } catch (error: unknown) {
+      if (
+        axios.isAxiosError<{ code?: string }>(error) &&
+        error.response?.data.code === 'PHONE_EXISTS'
+      ) {
+        setError('phone', { message: 'This phone number is already in use.' });
+      } else {
+        Alert.alert('Error', mapApiError(error, 'Failed to update profile. Please try again.'));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -205,21 +208,21 @@ export default function EditProfileScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  flex:      { flex: 1 },
-  screen:    { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
+  screen: { flex: 1, backgroundColor: colors.background },
   container: { paddingBottom: 48 },
 
   // Header
   header: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    paddingTop:     52,
-    paddingBottom:  12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 52,
+    paddingBottom: 12,
     paddingHorizontal: 24,
   },
-  backBtn:      { width: 36, alignItems: 'flex-start' },
-  backIcon:     { fontSize: 30, color: colors.textPrimary, lineHeight: 34 },
-  headerTitle:  { ...typography.h2, color: colors.textPrimary, flex: 1, textAlign: 'center' },
+  backBtn: { width: 36, alignItems: 'flex-start' },
+  backIcon: { fontSize: 30, color: colors.textPrimary, lineHeight: 34 },
+  headerTitle: { ...typography.h2, color: colors.textPrimary, flex: 1, textAlign: 'center' },
   headerSpacer: { width: 36 },
 
   // Avatar
@@ -243,17 +246,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: { fontSize: 26, fontWeight: '700', color: colors.primary },
-  avatarHint:     { ...typography.caption, color: colors.textMuted },
+  avatarHint: { ...typography.caption, color: colors.textMuted },
 
   // Form Card
   formCard: {
     marginHorizontal: 24,
-    backgroundColor:  colors.surface,
-    borderRadius:     16,
-    borderWidth:      1,
-    borderColor:      colors.border,
-    padding:          20,
-    marginBottom:     24,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    marginBottom: 24,
   },
   formSection: {
     ...typography.label,
@@ -267,22 +270,22 @@ const styles = StyleSheet.create({
   readonlyField: { marginBottom: 4 },
   readonlyLabel: { ...typography.label, color: colors.textSecondary, marginBottom: 6 },
   readonlyValue: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'space-between',
-    backgroundColor:  colors.surfaceAlt,
-    borderRadius:     10,
-    borderWidth:      1,
-    borderColor:      colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: 14,
-    paddingVertical:  14,
-    opacity:          0.7,
+    paddingVertical: 14,
+    opacity: 0.7,
   },
   readonlyText: { ...typography.body, color: colors.textMuted },
-  lockedIcon:   { fontSize: 16 },
+  lockedIcon: { fontSize: 16 },
   readonlyHint: { ...typography.caption, color: colors.textMuted, marginTop: 4, marginLeft: 2 },
 
   // Actions
-  actions:    { paddingHorizontal: 24, gap: 8 },
-  cancelBtn:  { marginTop: 0 },
+  actions: { paddingHorizontal: 24, gap: 8 },
+  cancelBtn: { marginTop: 0 },
 });

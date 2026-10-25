@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,20 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { UserRole, AccountStatus } from '../../types/user';
+import type { UserRole, AccountStatus } from '../../types/user';
+import { Button } from '../../components/common/Button';
+import { tokenStorage } from '../../services/tokenStorage';
+import { userService } from '../../services/user.service';
+import { authenticateBiometric, canUseBiometrics } from '../../services/biometric';
 
 // ─── Param List ───────────────────────────────────────────────────────────────
 // Each role-specific ProfileStack should define at minimum these routes.
@@ -27,31 +34,46 @@ type ProfileNavProp = NativeStackNavigationProp<ProfileStackParamList, 'Profile'
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getRoleLabel(role: UserRole): string {
   switch (role) {
-    case 'USER':             return 'Eco User';
-    case 'COLLECTOR':        return 'Waste Collector';
-    case 'RECYCLING_CENTER': return 'Recycling Center';
-    case 'ADMIN':            return 'Administrator';
-    default:                 return role;
+    case 'USER':
+      return 'Eco User';
+    case 'COLLECTOR':
+      return 'Waste Collector';
+    case 'RECYCLING_CENTER':
+      return 'Recycling Center';
+    case 'ADMIN':
+      return 'Administrator';
+    default:
+      return role;
   }
 }
 
 function getRoleBadgeColor(role: UserRole): string {
   switch (role) {
-    case 'USER':             return colors.roleUser;
-    case 'COLLECTOR':        return colors.roleCollector;
-    case 'RECYCLING_CENTER': return colors.roleCenter;
-    case 'ADMIN':            return colors.roleAdmin;
-    default:                 return colors.primary;
+    case 'USER':
+      return colors.roleUser;
+    case 'COLLECTOR':
+      return colors.roleCollector;
+    case 'RECYCLING_CENTER':
+      return colors.roleCenter;
+    case 'ADMIN':
+      return colors.roleAdmin;
+    default:
+      return colors.primary;
   }
 }
 
 function getStatusColor(status: AccountStatus): string {
   switch (status) {
-    case 'ACTIVE':               return colors.success;
-    case 'PENDING_VERIFICATION': return colors.warning;
-    case 'SUSPENDED':            return colors.error;
-    case 'REJECTED':             return colors.error;
-    default:                     return colors.textMuted;
+    case 'ACTIVE':
+      return colors.success;
+    case 'PENDING_VERIFICATION':
+      return colors.warning;
+    case 'SUSPENDED':
+      return colors.error;
+    case 'REJECTED':
+      return colors.error;
+    default:
+      return colors.textMuted;
   }
 }
 
@@ -76,12 +98,7 @@ interface MenuItemProps {
 
 function MenuItem({ icon, label, sublabel, onPress, danger = false, testID }: MenuItemProps) {
   return (
-    <TouchableOpacity
-      style={styles.menuItem}
-      onPress={onPress}
-      activeOpacity={0.7}
-      testID={testID}
-    >
+    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7} testID={testID}>
       <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>
         <Text style={styles.menuIconText}>{icon}</Text>
       </View>
@@ -96,36 +113,93 @@ function MenuItem({ icon, label, sublabel, onPress, danger = false, testID }: Me
 
 // ─── ProfileScreen ─────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const navigation = useNavigation<ProfileNavProp>();
+  const [refreshing, setRefreshing] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [deactivateVisible, setDeactivateVisible] = useState(false);
+  const [deactivationText, setDeactivationText] = useState('');
+  const [deactivating, setDeactivating] = useState(false);
+
+  useEffect(() => {
+    tokenStorage
+      .getBiometricEnabled()
+      .then(setBiometricEnabled)
+      .catch(() => Alert.alert('Error', 'Could not load biometric settings.'));
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+    } catch {
+      Alert.alert('Unable to refresh', 'Check your connection and try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshUser]);
+
+  const toggleBiometrics = useCallback(async () => {
+    try {
+      if (biometricEnabled) {
+        await tokenStorage.setBiometricEnabled(false);
+        setBiometricEnabled(false);
+        return;
+      }
+
+      if (!(await canUseBiometrics())) {
+        Alert.alert(
+          'Biometrics unavailable',
+          'Set up fingerprint or face unlock on this device first.'
+        );
+        return;
+      }
+      if (!(await authenticateBiometric('Enable biometric sign-in'))) return;
+      await tokenStorage.setBiometricEnabled(true);
+      setBiometricEnabled(true);
+    } catch {
+      Alert.alert('Unable to update setting', 'Biometric settings could not be changed.');
+    }
+  }, [biometricEnabled]);
+
+  const deactivateAccount = useCallback(async () => {
+    setDeactivating(true);
+    try {
+      await userService.deactivateMe();
+      await signOut();
+    } catch {
+      Alert.alert('Unable to deactivate', 'Your account was not deactivated. Please try again.');
+    } finally {
+      setDeactivating(false);
+    }
+  }, [signOut]);
 
   const handleSignOut = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => signOut(),
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => {
+          signOut().catch(() => Alert.alert('Sign-out failed', 'Please try again.'));
         },
-      ]
-    );
+      },
+    ]);
   }, [signOut]);
 
   if (!user) return null;
 
-  const roleColor    = getRoleBadgeColor(user.role);
-  const statusColor  = getStatusColor(user.status);
-  const initials     = getInitials(user.name);
-  const roleLabel    = getRoleLabel(user.role);
+  const roleColor = getRoleBadgeColor(user.role);
+  const statusColor = getStatusColor(user.status);
+  const initials = getInitials(user.name);
+  const roleLabel = getRoleLabel(user.role);
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
       {/* ── Header ─────────────────────────────── */}
       <View style={styles.header}>
@@ -145,20 +219,25 @@ export default function ProfileScreen() {
 
         <View style={styles.badgeRow}>
           {/* Role Badge */}
-          <View style={[styles.badge, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
+          <View
+            style={[styles.badge, { backgroundColor: roleColor + '22', borderColor: roleColor }]}
+          >
             <Text style={[styles.badgeText, { color: roleColor }]}>{roleLabel}</Text>
           </View>
           {/* Status Badge */}
-          <View style={[styles.badge, { backgroundColor: statusColor + '22', borderColor: statusColor }]}>
+          <View
+            style={[
+              styles.badge,
+              { backgroundColor: statusColor + '22', borderColor: statusColor },
+            ]}
+          >
             <Text style={[styles.badgeText, { color: statusColor }]}>
               {user.status.replace('_', ' ')}
             </Text>
           </View>
         </View>
 
-        {user.phone ? (
-          <Text style={styles.phoneText}>📱 {user.phone}</Text>
-        ) : null}
+        {user.phone ? <Text style={styles.phoneText}>📱 {user.phone}</Text> : null}
       </View>
 
       {/* ── Account Section ───────────────────── */}
@@ -188,6 +267,16 @@ export default function ProfileScreen() {
         <Text style={styles.sectionTitle}>More</Text>
         <View style={styles.menuCard}>
           <MenuItem
+            icon="🔎"
+            label="Biometric sign-in"
+            sublabel={
+              biometricEnabled ? 'Enabled on this device' : 'Use device biometrics to unlock'
+            }
+            onPress={toggleBiometrics}
+            testID="profile-biometric-btn"
+          />
+          <View style={styles.divider} />
+          <MenuItem
             icon="🚪"
             label="Sign Out"
             sublabel="Sign out from your account"
@@ -195,8 +284,61 @@ export default function ProfileScreen() {
             danger
             testID="profile-signout-btn"
           />
+          <View style={styles.divider} />
+          <MenuItem
+            icon="🗑️"
+            label="Deactivate Account"
+            sublabel="Permanently suspend your access"
+            onPress={() => {
+              setDeactivationText('');
+              setDeactivateVisible(true);
+            }}
+            danger
+            testID="profile-deactivate-btn"
+          />
         </View>
       </View>
+
+      <Modal
+        visible={deactivateVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeactivateVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Deactivate account?</Text>
+            <Text style={styles.modalDescription}>
+              This suspends your account and signs you out. Type DELETE to confirm.
+            </Text>
+            <TextInput
+              value={deactivationText}
+              onChangeText={setDeactivationText}
+              autoCapitalize="characters"
+              accessibilityLabel="Type DELETE to confirm account deactivation"
+              style={styles.confirmInput}
+              placeholder="DELETE"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Button
+              title="Deactivate account"
+              variant="danger"
+              loading={deactivating}
+              disabled={deactivationText !== 'DELETE'}
+              onPress={() => {
+                void deactivateAccount();
+              }}
+            />
+            <Button
+              title="Cancel"
+              variant="ghost"
+              disabled={deactivating}
+              onPress={() => setDeactivateVisible(false)}
+              style={styles.modalCancel}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Footer ────────────────────────────── */}
       <Text style={styles.footer}>EcoNexus · Building a greener future 🌱</Text>
@@ -206,7 +348,7 @@ export default function ProfileScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  screen:    { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: colors.background },
   container: { paddingBottom: 48 },
 
   // Header
@@ -249,8 +391,8 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
   },
-  userName:  { ...typography.h2,    color: colors.textPrimary, marginBottom: 4 },
-  userEmail: { ...typography.label, color: colors.textMuted,   marginBottom: 12 },
+  userName: { ...typography.h2, color: colors.textPrimary, marginBottom: 4 },
+  userEmail: { ...typography.label, color: colors.textMuted, marginBottom: 12 },
   phoneText: { ...typography.label, color: colors.textSecondary, marginTop: 8 },
 
   // Badges
@@ -303,12 +445,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuIconDanger: { backgroundColor: colors.errorSurface },
-  menuIconText:   { fontSize: 18 },
-  menuContent:    { flex: 1 },
-  menuLabel:      { ...typography.bodyMedium, color: colors.textPrimary },
-  menuLabelDanger:{ color: colors.error },
-  menuSublabel:   { ...typography.caption, color: colors.textMuted, marginTop: 1 },
-  menuChevron:    { fontSize: 22, color: colors.textMuted, lineHeight: 26 },
+  menuIconText: { fontSize: 18 },
+  menuContent: { flex: 1 },
+  menuLabel: { ...typography.bodyMedium, color: colors.textPrimary },
+  menuLabelDanger: { color: colors.error },
+  menuSublabel: { ...typography.caption, color: colors.textMuted, marginTop: 1 },
+  menuChevron: { fontSize: 22, color: colors.textMuted, lineHeight: 26 },
 
   // Footer
   footer: {
@@ -318,4 +460,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 24,
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: 8 },
+  modalDescription: { ...typography.body, color: colors.textSecondary, marginBottom: 16 },
+  confirmInput: {
+    ...typography.body,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 16,
+  },
+  modalCancel: { marginTop: 8 },
 });
