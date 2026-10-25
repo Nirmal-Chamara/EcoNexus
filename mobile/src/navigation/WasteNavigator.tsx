@@ -5,6 +5,7 @@ import {
 } from "@react-navigation/native-stack";
 import MyListingsScreen from "../screens/user/MyListingsScreen";
 import WasteCategoryScreen from "../screens/user/WasteCategoryScreen";
+import AddListingScreen from "../screens/user/AddListingScreen";
 
 export type WasteStackParamList = {
   MyListings: undefined;
@@ -17,9 +18,7 @@ const Stack = createNativeStackNavigator<WasteStackParamList>();
 
 function Placeholder({ label }: { label: string }) {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text>{label} (coming next)</Text>
-    </View>
+    <Stack.Screen name="AddListing" component={AddListingScreen} options={{ title: "Add Waste Listing" }} />
   );
 }
 

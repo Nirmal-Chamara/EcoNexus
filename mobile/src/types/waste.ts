@@ -19,3 +19,13 @@ export interface WasteListing {
   category_name: string;
   images: string[];
 }
+
+export interface CreateListingInput {
+  categoryId: number;
+  title: string;
+  description?: string;
+  quantity: number;
+  unit: "kg" | "items";
+  condition: "clean" | "dirty" | "damaged" | "reusable";
+  imageUrls: string[];
+}
