@@ -8,7 +8,10 @@ export interface AuthUser {
   role: UserRole;
   status: AccountStatus;
   phone?: string | null;
+  address_text?: string | null;
   avatar_url?: string | null;
+  last_login_at?: string | null;
+  created_at?: string;
 }
 
 export interface LoginInput {
@@ -34,4 +37,9 @@ export interface AuthResponse {
 export interface RefreshTokenResponse {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface ApiEnvelope<T> {
+  message: string;
+  data: T;
 }
