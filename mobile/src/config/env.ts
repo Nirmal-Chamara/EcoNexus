@@ -17,11 +17,22 @@ const getDevSocketUrl = (): string => {
   return `http://localhost:${DEFAULT_PORT}`;
 };
 
+const environment = process.env.EXPO_PUBLIC_ENV || 'development';
+const apiUrl = process.env.EXPO_PUBLIC_API_URL || getDevApiUrl();
+const socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || getDevSocketUrl();
+
+if (
+  environment !== 'development' &&
+  (!apiUrl.startsWith('https://') || !socketUrl.startsWith('https://'))
+) {
+  throw new Error('API and socket URLs must use HTTPS outside development builds.');
+}
+
 export const env = {
-  API_URL: process.env.EXPO_PUBLIC_API_URL || getDevApiUrl(),
-  SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_URL || getDevSocketUrl(),
-  ENV: process.env.EXPO_PUBLIC_ENV || 'development',
-  IS_DEV: (process.env.EXPO_PUBLIC_ENV || 'development') === 'development',
+  API_URL: apiUrl,
+  SOCKET_URL: socketUrl,
+  ENV: environment,
+  IS_DEV: environment === 'development',
   APP_NAME: 'EcoNexus',
 };
 
