@@ -1,18 +1,27 @@
-export type UserRole = 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN';
+export type Role = 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN';
+export type UserRole = Role;
 export type AccountStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'REJECTED' | 'SUSPENDED';
 
-export interface AuthUser {
+/** Exact user summary returned by login, registration and admin status updates. */
+export interface UserSummary {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   status: AccountStatus;
-  phone?: string | null;
-  address_text?: string | null;
-  avatar_url?: string | null;
-  last_login_at?: string | null;
-  created_at?: string;
 }
+
+/** GET/PATCH /users/me JSON payload. Dates are serialized ISO strings. */
+export interface User extends UserSummary {
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Local session state can contain either an auth summary or a fetched profile. */
+export type AuthUser = UserSummary & Partial<Pick<User, 'phone' | 'created_at' | 'updated_at'>>;
+
+export type AdminUser = Omit<User, 'updated_at'>;
 
 export interface LoginInput {
   email: string;
@@ -29,7 +38,7 @@ export interface RegisterInput {
 }
 
 export interface AuthResponse {
-  user: AuthUser;
+  user: UserSummary;
   accessToken: string;
   refreshToken: string;
 }
@@ -39,7 +48,4 @@ export interface RefreshTokenResponse {
   refreshToken: string;
 }
 
-export interface ApiEnvelope<T> {
-  message: string;
-  data: T;
-}
+export type { ApiEnvelope } from './api';

@@ -11,19 +11,14 @@
  */
 
 import { apiClient } from './api';
-import { UserRole, AccountStatus } from '../types/user';
+import type { UserRole, AccountStatus, AdminUser, UserSummary } from '../types/user';
+import type { PaginatedMeta } from '../types/api';
+import type { VerificationRequest, VerificationStatus } from '../types/verification';
+export type { AdminUser } from '../types/user';
+export type { PaginatedMeta } from '../types/api';
+export type { VerificationRequest, VerificationStatus } from '../types/verification';
 
 // ─── User Types ────────────────────────────────────────────────────────────────
-
-export interface AdminUser {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  role: UserRole;
-  status: AccountStatus;
-  created_at: string;
-}
 
 export interface GetUsersParams {
   search?: string;
@@ -33,13 +28,6 @@ export interface GetUsersParams {
   limit?: number;
 }
 
-export interface PaginatedMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
 export interface GetUsersResponse {
   message: string;
   data: AdminUser[];
@@ -47,21 +35,6 @@ export interface GetUsersResponse {
 }
 
 // ─── Verification Types ────────────────────────────────────────────────────────
-
-export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-
-export interface VerificationRequest {
-  id: string;
-  requested_role: UserRole;
-  organization_name: string;
-  registration_no: string | null;
-  document_url: string | null;
-  status: VerificationStatus;
-  created_at: string;
-  user_id: string;
-  user_name: string;
-  user_email: string;
-}
 
 export interface GetVerificationsParams {
   status?: VerificationStatus | '';
@@ -90,10 +63,10 @@ export const adminService = {
   async getUsers(params: GetUsersParams = {}): Promise<GetUsersResponse> {
     const response = await apiClient.get<GetUsersResponse>('/admin/users', {
       params: {
-        ...(params.search  ? { search: params.search }  : {}),
-        ...(params.role    ? { role:   params.role }    : {}),
-        ...(params.status  ? { status: params.status }  : {}),
-        page:  params.page  ?? 1,
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.role ? { role: params.role } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        page: params.page ?? 1,
         limit: params.limit ?? 20,
       },
     });
@@ -107,11 +80,11 @@ export const adminService = {
   async updateUserStatus(
     userId: string,
     status: AccountStatus,
-    reason?: string,
-  ): Promise<{ message: string; data: AdminUser }> {
-    const response = await apiClient.patch<{ message: string; data: AdminUser }>(
+    reason?: string
+  ): Promise<{ message: string; data: UserSummary }> {
+    const response = await apiClient.patch<{ message: string; data: UserSummary }>(
       `/admin/users/${userId}/status`,
-      { status, ...(reason ? { reason } : {}) },
+      { status, ...(reason ? { reason } : {}) }
     );
     return response.data;
   },
@@ -120,19 +93,14 @@ export const adminService = {
    * GET /api/admin/verifications
    * Fetch paginated verification queue.
    */
-  async getVerifications(
-    params: GetVerificationsParams = {},
-  ): Promise<GetVerificationsResponse> {
-    const response = await apiClient.get<GetVerificationsResponse>(
-      '/admin/verifications',
-      {
-        params: {
-          ...(params.status ? { status: params.status } : {}),
-          page:  params.page  ?? 1,
-          limit: params.limit ?? 20,
-        },
+  async getVerifications(params: GetVerificationsParams = {}): Promise<GetVerificationsResponse> {
+    const response = await apiClient.get<GetVerificationsResponse>('/admin/verifications', {
+      params: {
+        ...(params.status ? { status: params.status } : {}),
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
       },
-    );
+    });
     return response.data;
   },
 
@@ -142,11 +110,11 @@ export const adminService = {
    */
   async processVerification(
     verificationId: string,
-    input: ProcessVerificationInput,
+    input: ProcessVerificationInput
   ): Promise<{ message: string }> {
     const response = await apiClient.patch<{ message: string }>(
       `/admin/verifications/${verificationId}/process`,
-      input,
+      input
     );
     return response.data;
   },
