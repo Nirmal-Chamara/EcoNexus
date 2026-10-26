@@ -4,11 +4,8 @@
     "slug": "econexus",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
       "backgroundColor": "#0A0F0D"
     },
     "assetBundlePatterns": ["**/*"],
@@ -17,10 +14,6 @@
       "bundleIdentifier": "com.econexus.app"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0F0D"
-      },
       "package": "com.econexus.app"
     },
     "plugins": [
@@ -35,7 +28,6 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#22C55E"
         }
       ]
