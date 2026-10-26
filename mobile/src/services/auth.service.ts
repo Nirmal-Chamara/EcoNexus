@@ -41,14 +41,18 @@ export const authService = {
    * Logout and revoke the current session's token family.
    */
   async logout(refreshToken: string): Promise<void> {
-    await apiClient.post('/auth/logout', { refreshToken });
+    await apiClient.post<{ message: string }>('/auth/logout', { refreshToken });
+  },
+
+  async logoutAll(): Promise<void> {
+    await apiClient.post<{ message: string }>('/auth/logout-all');
   },
 
   async requestPasswordReset(email: string): Promise<void> {
-    await apiClient.post('/auth/forgot-password', { email });
+    await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
   },
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    await apiClient.post('/auth/reset-password', { token, newPassword });
+    await apiClient.post<{ message: string }>('/auth/reset-password', { token, newPassword });
   },
 };
