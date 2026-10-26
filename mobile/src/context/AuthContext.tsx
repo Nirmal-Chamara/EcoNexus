@@ -175,8 +175,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await authService.logout(refreshToken).catch(() => {});
       }
     } finally {
-      await tokenStorage.clearTokens();
-      dispatch({ type: 'SIGN_OUT' });
+      try {
+        await tokenStorage.clearTokens();
+      } finally {
+        dispatch({ type: 'SIGN_OUT' });
+      }
     }
   }, []);
 

@@ -1,4 +1,29 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// Keep the default keychain service to retain access to existing installations.
+const options: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+const webMemory = new Map<string, string>();
+const read = (key: string): Promise<string | null> =>
+  Platform.OS === 'web'
+    ? Promise.resolve(webMemory.get(key) ?? null)
+    : SecureStore.getItemAsync(key, options);
+const write = async (key: string, value: string): Promise<void> => {
+  if (Platform.OS === 'web') {
+    webMemory.set(key, value);
+    return;
+  }
+  await SecureStore.setItemAsync(key, value, options);
+};
+const remove = async (key: string): Promise<void> => {
+  if (Platform.OS === 'web') {
+    webMemory.delete(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key, options);
+};
 
 // ─────────────────────────────────────────────
 // Storage Keys
@@ -26,11 +51,11 @@ export const tokenStorage = {
   // ── Preference ─────────────────────────────────────────────────
 
   async setKeepSignedIn(value: boolean): Promise<void> {
-    await SecureStore.setItemAsync(KEYS.KEEP_SIGNED_IN, value ? '1' : '0');
+    await write(KEYS.KEEP_SIGNED_IN, value ? '1' : '0');
   },
 
   async getKeepSignedIn(): Promise<boolean> {
-    const val = await SecureStore.getItemAsync(KEYS.KEEP_SIGNED_IN);
+    const val = await read(KEYS.KEEP_SIGNED_IN);
     // Default to true (checked) if not yet set
     return val !== '0';
   },
@@ -38,11 +63,11 @@ export const tokenStorage = {
   // ── Biometric preference ────────────────────────────────────────
 
   async setBiometricEnabled(value: boolean): Promise<void> {
-    await SecureStore.setItemAsync(KEYS.BIOMETRIC_ENABLED, value ? '1' : '0');
+    await write(KEYS.BIOMETRIC_ENABLED, value ? '1' : '0');
   },
 
   async getBiometricEnabled(): Promise<boolean> {
-    const val = await SecureStore.getItemAsync(KEYS.BIOMETRIC_ENABLED);
+    const val = await read(KEYS.BIOMETRIC_ENABLED);
     return val === '1';
   },
 
@@ -53,17 +78,24 @@ export const tokenStorage = {
    * @param keepSignedIn - If false, refresh token goes to memory only.
    */
   async saveTokens(accessToken: string, refreshToken: string, keepSignedIn = true): Promise<void> {
+    await tokenStorage.saveRefresh(refreshToken, keepSignedIn);
     _memoryAccessToken = accessToken;
-    // Remove access tokens saved by older app versions.
-    await SecureStore.deleteItemAsync(KEYS.LEGACY_ACCESS_TOKEN);
+  },
 
+  async saveRefresh(refreshToken: string, keepSignedIn = true): Promise<void> {
+    await remove(KEYS.LEGACY_ACCESS_TOKEN);
+    await tokenStorage.setKeepSignedIn(keepSignedIn);
     if (keepSignedIn) {
-      await SecureStore.setItemAsync(KEYS.REFRESH_TOKEN, refreshToken);
+      await write(KEYS.REFRESH_TOKEN, refreshToken);
       _memoryRefreshToken = null;
     } else {
-      await SecureStore.deleteItemAsync(KEYS.REFRESH_TOKEN);
+      await remove(KEYS.REFRESH_TOKEN);
       _memoryRefreshToken = refreshToken;
     }
+  },
+
+  async getRefresh(): Promise<string | null> {
+    return _memoryRefreshToken ?? (await read(KEYS.REFRESH_TOKEN));
   },
 
   /**
@@ -78,8 +110,7 @@ export const tokenStorage = {
    * Checks SecureStore first (persisted), then falls back to memory.
    */
   async getRefreshToken(): Promise<string | null> {
-    const persisted = await SecureStore.getItemAsync(KEYS.REFRESH_TOKEN);
-    return persisted ?? _memoryRefreshToken;
+    return tokenStorage.getRefresh();
   },
 
   /**
@@ -87,9 +118,22 @@ export const tokenStorage = {
    * Called on logout and on refresh failure (force-logout).
    */
   async clearTokens(): Promise<void> {
+    return tokenStorage.clear();
+  },
+
+  async clear(): Promise<void> {
     _memoryAccessToken = null;
-    await SecureStore.deleteItemAsync(KEYS.REFRESH_TOKEN);
-    await SecureStore.deleteItemAsync(KEYS.LEGACY_ACCESS_TOKEN);
     _memoryRefreshToken = null;
+    // Attempt both deletions even when one fails; never leave memory signed in.
+    const results = await Promise.allSettled([
+      remove(KEYS.REFRESH_TOKEN),
+      remove(KEYS.LEGACY_ACCESS_TOKEN),
+    ]);
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
   },
 };
+
+export const saveRefresh = tokenStorage.saveRefresh;
+export const getRefresh = tokenStorage.getRefresh;
+export const clear = tokenStorage.clear;
