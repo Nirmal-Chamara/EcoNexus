@@ -37,6 +37,20 @@ const KEYS = {
 
 let _memoryAccessToken: string | null = null;
 let _memoryRefreshToken: string | null = null;
+const accessListeners = new Set<(token: string | null) => void>();
+
+export function subscribeAccessToken(listener: (token: string | null) => void): () => void {
+  accessListeners.add(listener);
+  listener(_memoryAccessToken);
+  return () => {
+    accessListeners.delete(listener);
+  };
+}
+
+function setAccessToken(token: string | null): void {
+  _memoryAccessToken = token;
+  accessListeners.forEach((listener) => listener(token));
+}
 
 /**
  * Secure token storage using expo-secure-store.
@@ -79,7 +93,7 @@ export const tokenStorage = {
    */
   async saveTokens(accessToken: string, refreshToken: string, keepSignedIn = true): Promise<void> {
     await tokenStorage.saveRefresh(refreshToken, keepSignedIn);
-    _memoryAccessToken = accessToken;
+    setAccessToken(accessToken);
   },
 
   async saveRefresh(refreshToken: string, keepSignedIn = true): Promise<void> {
@@ -122,7 +136,7 @@ export const tokenStorage = {
   },
 
   async clear(): Promise<void> {
-    _memoryAccessToken = null;
+    setAccessToken(null);
     _memoryRefreshToken = null;
     // Attempt both deletions even when one fails; never leave memory signed in.
     const results = await Promise.allSettled([

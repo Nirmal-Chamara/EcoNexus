@@ -15,6 +15,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAuth } from '../../hooks/useAuth';
+import { Toast } from '../../components/ui';
 import { Button } from '../../components/common/Button';
 import { FormInput } from '../../components/forms/FormInput';
 import { colors } from '../../theme/colors';
@@ -32,7 +33,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, logoutReason, dismissLogoutReason } = useAuth();
   const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
 
@@ -65,6 +66,17 @@ export default function LoginScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        <Toast
+          visible={logoutReason !== null}
+          tone="error"
+          duration={0}
+          onDismiss={dismissLogoutReason}
+          message={
+            logoutReason === 'SUSPENDED'
+              ? 'Your account is suspended or disabled. Contact support.'
+              : 'Your session has expired. Please sign in again.'
+          }
+        />
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌱</Text>

@@ -3,6 +3,20 @@ import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { env } from '../config/env';
 import { tokenStorage } from './tokenStorage';
 import type { ApiEnvelope, RefreshTokenResponse } from '../types/user';
+import type { ApiError } from '../types/api';
+import type { ForceLogoutReason } from '../types/session';
+
+export function logoutReasonForError(error: unknown): ForceLogoutReason {
+  if (
+    axios.isAxiosError<ApiError>(error) &&
+    error.response?.status === 403 &&
+    (error.response.data?.code === 'ACCOUNT_DISABLED' ||
+      error.response.data?.code === 'ACCOUNT_SUSPENDED')
+  ) {
+    return 'SUSPENDED';
+  }
+  return 'SESSION_EXPIRED';
+}
 
 // ─────────────────────────────────────────────
 // Axios Instance
@@ -42,17 +56,26 @@ function rejectQueue(error: unknown): void {
 // AuthContext subscribes to this to trigger sign-out
 // from anywhere in the app (including interceptors).
 // ─────────────────────────────────────────────
-type ForceLogoutHandler = () => void;
+type ForceLogoutHandler = (reason: ForceLogoutReason) => void;
 let _forceLogoutHandler: ForceLogoutHandler | null = null;
 
-export function registerForceLogoutHandler(handler: ForceLogoutHandler): void {
+export function registerForceLogoutHandler(handler: ForceLogoutHandler): () => void {
   _forceLogoutHandler = handler;
+  return () => {
+    if (_forceLogoutHandler === handler) _forceLogoutHandler = null;
+  };
 }
 
-export function triggerForceLogout(): void {
+export function triggerForceLogout(reason: ForceLogoutReason = 'SESSION_EXPIRED'): void {
   if (_forceLogoutHandler) {
-    void _forceLogoutHandler();
+    void _forceLogoutHandler(reason);
   }
+}
+
+async function invalidateSession(reason: ForceLogoutReason): Promise<void> {
+  // Notify even if native storage deletion fails.
+  triggerForceLogout(reason);
+  await tokenStorage.clearTokens().catch(() => {});
 }
 
 // ─────────────────────────────────────────────
@@ -81,6 +104,19 @@ apiClient.interceptors.response.use(
         })
       | undefined;
 
+    const requestUrl = originalRequest?.url ?? '';
+    const publicAuth =
+      /\/auth\/(login|register|forgot-password|reset-password|refresh-token)(?:\?|$)/.test(
+        requestUrl
+      );
+    if (!publicAuth && logoutReasonForError(error) === 'SUSPENDED') {
+      await invalidateSession('SUSPENDED');
+      return Promise.reject(error);
+    }
+    if (!publicAuth && error.response?.status === 401 && originalRequest?._retry) {
+      await invalidateSession('SESSION_EXPIRED');
+      return Promise.reject(error);
+    }
     // Only handle 401 Unauthorized errors that haven't been retried already
     if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
       return Promise.reject(error);
@@ -123,7 +159,7 @@ apiClient.interceptors.response.use(
       const response = await axios.post<ApiEnvelope<RefreshTokenResponse>>(
         `${env.API_URL}/auth/refresh-token`,
         { refreshToken: storedRefreshToken },
-        { headers: { 'Content-Type': 'application/json' } }
+        { timeout: 15000, headers: { 'Content-Type': 'application/json' } }
       );
 
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
@@ -143,9 +179,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     } catch (refreshError) {
       rejectQueue(refreshError);
-      await tokenStorage.clearTokens();
-      // Signal AuthContext to force sign-out across the entire app
-      triggerForceLogout();
+      await invalidateSession(logoutReasonForError(refreshError));
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
