@@ -7,7 +7,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  Register: { partner?: boolean } | undefined;
   ForgotPassword: undefined;
   ResetPassword: undefined;
 };

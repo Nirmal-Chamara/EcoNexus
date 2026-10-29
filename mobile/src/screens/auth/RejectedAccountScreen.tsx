@@ -7,6 +7,7 @@ import { typography } from '../../theme/typography';
 
 export default function RejectedAccountScreen() {
   const { user, signOut } = useAuth();
+  const reason = user?.rejectionReason?.trim();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -16,15 +17,18 @@ export default function RejectedAccountScreen() {
       <Text style={styles.title}>Application not approved</Text>
       <Text style={styles.message}>
         {user?.name ? `Hi ${user.name}. ` : ''}
-        Your account verification was not approved. Please contact support if you need more
-        information.
+        Your account verification was not approved.
       </Text>
-      <Button
-        title="Sign Out"
-        variant="secondary"
-        onPress={signOut}
-        style={styles.signOutButton}
-      />
+      <View style={styles.reasonCard}>
+        <Text style={styles.reasonTitle}>Review note</Text>
+        <Text style={styles.reasonText}>
+          {reason ?? 'No additional reason was provided. Please contact support for details.'}
+        </Text>
+      </View>
+      <Text style={styles.supportText}>
+        You can contact support if you believe this was a mistake.
+      </Text>
+      <Button title="Sign Out" variant="secondary" onPress={signOut} style={styles.signOutButton} />
     </ScrollView>
   );
 }
@@ -59,6 +63,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  reasonCard: {
+    width: '100%',
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  reasonTitle: { ...typography.label, color: colors.textSecondary, marginBottom: 8 },
+  reasonText: { ...typography.body, color: colors.textPrimary, lineHeight: 22 },
+  supportText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 12,
   },
   signOutButton: { marginTop: 32 },
 });

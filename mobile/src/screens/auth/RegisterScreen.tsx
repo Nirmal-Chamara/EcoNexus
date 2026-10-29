@@ -1,64 +1,105 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAuth } from '../../hooks/useAuth';
 import type { UserRole } from '../../types/user';
+import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { Button } from '../../components/common/Button';
-import { FormInput } from '../../components/forms/FormInput';
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
-import { registerSchema } from '../../schemas/auth.schema';
+import { Card, Input } from '../../components/ui';
+import { colors, radii, spacing, typography } from '../../theme';
+import { registerFormSchema } from '../../schemas/auth.schema';
 import { mapApiError } from '../../utils/errorMapper';
+import axios from 'axios';
 
-type RegisterForm = z.infer<typeof registerSchema>;
+type RegisterForm = z.infer<typeof registerFormSchema>;
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-// ─── Role Config ──────────────────────────────────────────────────────────────
-const ROLES: { id: UserRole; label: string; emoji: string; description: string }[] = [
+const ROLES: {
+  id: Exclude<UserRole, 'ADMIN'>;
+  label: string;
+  icon: string;
+  description: string;
+}[] = [
   {
     id: 'USER',
-    label: 'Resident',
-    emoji: '🏡',
-    description: 'Schedule pickups, track your eco impact',
+    label: 'Household',
+    icon: '⌂',
+    description: 'Schedule pickups and track your eco impact',
   },
   {
     id: 'COLLECTOR',
-    label: 'Waste Collector',
-    emoji: '🚛',
-    description: 'Manage pickup requests and routes',
+    label: 'Collector',
+    icon: '♻',
+    description: 'Manage pickup requests and collection routes',
   },
   {
     id: 'RECYCLING_CENTER',
     label: 'Recycling Center',
-    emoji: '♻️',
-    description: 'Manage recycling operations',
+    icon: '◎',
+    description: 'Manage accepted materials and recycling operations',
   },
 ];
 
-// ─── Step Config ──────────────────────────────────────────────────────────────
-const STEPS = ['Role', 'Account', 'Confirm'];
+const STEPS = ['Role', 'Account', 'Organization', 'Review'] as const;
 
-interface Props {
-  navigation?: { navigate: (screen: string) => void; goBack: () => void };
+function passwordScore(password: string) {
+  return [
+    password.length >= 8,
+    password.length <= 72,
+    /[A-Z]/.test(password),
+    /[a-z]/.test(password),
+    /[0-9]/.test(password),
+  ].filter(Boolean).length;
 }
 
-export default function RegisterScreen({ navigation }: Props) {
+function PasswordStrength({ password }: { password: string }) {
+  if (!password) return null;
+  const score = passwordScore(password);
+  const label = score <= 2 ? 'Weak' : score < 5 ? 'Fair' : 'Strong';
+  const tone = score <= 2 ? colors.error : score < 5 ? colors.warning : colors.success;
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Password strength: ${label}`}
+      accessibilityValue={{ min: 0, max: 5, now: score }}
+      style={styles.strengthContainer}
+    >
+      <View style={styles.strengthBars}>
+        {Array.from({ length: 5 }, (_, index) => (
+          <View
+            key={index}
+            style={[styles.strengthBar, index < score && { backgroundColor: tone }]}
+          />
+        ))}
+      </View>
+      <Text style={[styles.strengthLabel, { color: tone }]}>{label}</Text>
+    </View>
+  );
+}
+
+export default function RegisterScreen({ navigation, route }: Props) {
   const { signUp } = useAuth();
+  const partnerMode = route.params?.partner === true;
+  const defaultRole: Exclude<UserRole, 'ADMIN'> = partnerMode ? 'COLLECTOR' : 'USER';
   const [step, setStep] = useState(0);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
-  const orgRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
+  const organizationRef = useRef<TextInput>(null);
 
   const {
     control,
@@ -68,27 +109,37 @@ export default function RegisterScreen({ navigation }: Props) {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerFormSchema),
+    mode: 'onChange',
     defaultValues: {
       name: '',
       email: '',
       password: '',
+      confirmPassword: '',
       phone: '',
-      role: 'USER',
+      role: defaultRole,
       organizationName: '',
     },
   });
 
   const selectedRole = watch('role');
+  const password = watch('password');
+  const email = watch('email');
   const requiresOrg = selectedRole === 'COLLECTOR' || selectedRole === 'RECYCLING_CENTER';
+  const visibleRoles = partnerMode ? ROLES.filter((role) => role.id !== 'USER') : ROLES;
+  const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  // ── Step navigation ──────────────────────────────────────────────────────────
   const nextStep = async () => {
-    let valid = false;
-    if (step === 0) valid = await trigger('role');
-    if (step === 1) valid = await trigger(['name', 'email', 'password', 'phone']);
-    if (step === 2 && requiresOrg) valid = await trigger('organizationName');
-    if (valid) setStep((s) => s + 1);
+    const fields =
+      step === 0
+        ? ['role']
+        : step === 1
+          ? ['name', 'email', 'password', 'confirmPassword', 'phone']
+          : step === 2 && requiresOrg
+            ? ['organizationName']
+            : [];
+    const valid = fields.length === 0 || (await trigger(fields as (keyof RegisterForm)[]));
+    if (valid) setStep((current) => Math.min(current + 1, STEPS.length - 1));
   };
 
   const onSubmit = async (data: RegisterForm) => {
@@ -102,32 +153,14 @@ export default function RegisterScreen({ navigation }: Props) {
         organizationName: requiresOrg ? data.organizationName || undefined : undefined,
       });
     } catch (error: unknown) {
-      const message = mapApiError(error, 'Registration failed. Please try again.');
-      setError('email', { message });
+      const code = axios.isAxiosError(error) ? error.response?.data?.code : undefined;
+      const field = code === 'PHONE_EXISTS' ? 'phone' : 'email';
+      setError(field, { message: mapApiError(error, 'Registration failed. Please try again.') });
       setStep(1);
     }
   };
 
-  // ── Step indicator ───────────────────────────────────────────────────────────
-  const StepIndicator = () => (
-    <View style={styles.stepRow}>
-      {STEPS.map((label, i) => (
-        <React.Fragment key={label}>
-          <View style={styles.stepItem}>
-            <View style={[styles.stepDot, i <= step && styles.stepDotActive]}>
-              <Text style={[styles.stepNum, i <= step && styles.stepNumActive]}>
-                {i < step ? '✓' : i + 1}
-              </Text>
-            </View>
-            <Text style={[styles.stepLabel, i <= step && styles.stepLabelActive]}>{label}</Text>
-          </View>
-          {i < STEPS.length - 1 && (
-            <View style={[styles.stepLine, i < step && styles.stepLineActive]} />
-          )}
-        </React.Fragment>
-      ))}
-    </View>
-  );
+  const selectedRoleLabel = ROLES.find((role) => role.id === selectedRole)?.label ?? selectedRole;
 
   return (
     <KeyboardAvoidingView
@@ -139,69 +172,89 @@ export default function RegisterScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Create account</Text>
-          <Text style={styles.subtitle}>Join EcoNexus and make an impact</Text>
+          <Text style={styles.title}>
+            {partnerMode ? 'Partner registration' : 'Create account'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {partnerMode
+              ? 'Apply to join EcoNexus as a verified collection partner.'
+              : 'Join EcoNexus and make an impact.'}
+          </Text>
         </View>
 
-        <StepIndicator />
+        <View style={styles.stepRow} accessibilityLabel={`Registration step ${step + 1} of 4`}>
+          {STEPS.map((label, index) => (
+            <React.Fragment key={label}>
+              <View style={styles.stepItem}>
+                <View style={[styles.stepDot, index <= step && styles.stepDotActive]}>
+                  <Text style={[styles.stepNumber, index <= step && styles.stepNumberActive]}>
+                    {index < step ? '✓' : index + 1}
+                  </Text>
+                </View>
+                <Text style={[styles.stepLabel, index <= step && styles.stepLabelActive]}>
+                  {label}
+                </Text>
+              </View>
+              {index < STEPS.length - 1 && (
+                <View style={[styles.stepLine, index < step && styles.stepLineActive]} />
+              )}
+            </React.Fragment>
+          ))}
+        </View>
 
-        {/* ── Step 0: Role Selection ── */}
         {step === 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>I am a...</Text>
+            <Text style={styles.sectionTitle}>Choose your account type</Text>
+            {partnerMode && (
+              <Text style={styles.helper}>Partner accounts require admin verification.</Text>
+            )}
             <Controller
               control={control}
               name="role"
               render={({ field: { onChange, value } }) => (
                 <View style={styles.roleList}>
-                  {ROLES.map((role) => (
-                    <TouchableOpacity
+                  {visibleRoles.map((role) => (
+                    <Pressable
                       key={role.id}
-                      style={[styles.roleCard, value === role.id && styles.roleCardActive]}
+                      accessibilityRole="radio"
+                      accessibilityLabel={role.label}
+                      accessibilityState={{ checked: value === role.id }}
                       onPress={() => onChange(role.id)}
-                      activeOpacity={0.8}
+                      style={[styles.roleCard, value === role.id && styles.roleCardActive]}
                     >
-                      <Text style={styles.roleEmoji}>{role.emoji}</Text>
+                      <Text style={styles.roleIcon}>{role.icon}</Text>
                       <View style={styles.roleInfo}>
                         <Text
                           style={[styles.roleLabel, value === role.id && styles.roleLabelActive]}
                         >
                           {role.label}
                         </Text>
-                        <Text style={styles.roleDesc}>{role.description}</Text>
+                        <Text style={styles.roleDescription}>{role.description}</Text>
                       </View>
-                      <View
-                        style={[styles.radioOuter, value === role.id && styles.radioOuterActive]}
-                      >
-                        {value === role.id && <View style={styles.radioInner} />}
+                      <View style={[styles.radio, value === role.id && styles.radioActive]}>
+                        {value === role.id && <View style={styles.radioDot} />}
                       </View>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </View>
               )}
             />
-            {requiresOrg && (
-              <View style={styles.orgNote}>
-                <Text style={styles.orgNoteText}>
-                  ℹ️ Your account will require admin verification before activation.
-                </Text>
-              </View>
-            )}
           </View>
         )}
 
-        {/* ── Step 1: Account Details ── */}
         {step === 1 && (
           <View style={styles.section}>
             <Controller
               control={control}
               name="name"
               render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
+                <Input
                   label="Full name"
-                  placeholder="John Smith"
+                  placeholder="Alex Green"
+                  icon="person-outline"
+                  textContentType="name"
+                  autoComplete="name"
                   returnKeyType="next"
                   value={value}
                   onChangeText={onChange}
@@ -215,17 +268,42 @@ export default function RegisterScreen({ navigation }: Props) {
               control={control}
               name="email"
               render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
+                <Input
                   ref={emailRef}
                   label="Email address"
                   placeholder="you@example.com"
+                  icon="mail-outline"
                   keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
                   autoCapitalize="none"
+                  autoCorrect={false}
                   returnKeyType="next"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   error={errors.email?.message}
+                  valid={emailIsValid}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                />
+              )}
+            />
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Input
+                  label="Phone number (optional)"
+                  placeholder="+94 77 123 4567"
+                  icon="call-outline"
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  autoComplete="tel"
+                  returnKeyType="next"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.phone?.message}
                   onSubmitEditing={() => passwordRef.current?.focus()}
                 />
               )}
@@ -234,103 +312,138 @@ export default function RegisterScreen({ navigation }: Props) {
               control={control}
               name="password"
               render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
+                <Input
                   ref={passwordRef}
                   label="Password"
-                  placeholder="Min 8 chars, upper, lower, number"
+                  placeholder="8–72 characters with upper, lower, number"
+                  icon="lock-closed-outline"
                   isPassword
+                  textContentType="newPassword"
+                  autoComplete="new-password"
                   returnKeyType="next"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
                   error={errors.password?.message}
-                  onSubmitEditing={() => orgRef.current?.focus()}
+                  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                 />
               )}
             />
+            <PasswordStrength password={password} />
             <Controller
               control={control}
-              name="phone"
+              name="confirmPassword"
               render={({ field: { onChange, onBlur, value } }) => (
-                <FormInput
-                  label="Phone number (optional)"
-                  placeholder="+94 77 123 4567"
-                  keyboardType="phone-pad"
+                <Input
+                  ref={confirmPasswordRef}
+                  label="Confirm password"
+                  placeholder="Re-enter your password"
+                  icon="lock-closed-outline"
+                  isPassword
+                  textContentType="newPassword"
+                  autoComplete="new-password"
                   returnKeyType="done"
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={errors.phone?.message}
+                  error={errors.confirmPassword?.message}
+                  onSubmitEditing={nextStep}
                 />
               )}
             />
           </View>
         )}
 
-        {/* ── Step 2: Confirm / Org Details ── */}
         {step === 2 && (
           <View style={styles.section}>
-            {requiresOrg && (
+            {requiresOrg ? (
               <Controller
                 control={control}
                 name="organizationName"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <FormInput
-                    ref={orgRef}
+                  <Input
+                    ref={organizationRef}
                     label="Organization name"
-                    placeholder="Your company or center name"
+                    placeholder="Green Collectors Ltd"
+                    icon="business-outline"
+                    textContentType="organizationName"
                     returnKeyType="done"
                     value={value}
                     onChangeText={onChange}
                     onBlur={onBlur}
                     error={errors.organizationName?.message}
+                    onSubmitEditing={nextStep}
                   />
                 )}
               />
-            )}
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Review your details</Text>
-              <Text style={styles.summaryRow}>
-                <Text style={styles.summaryKey}>Role: </Text>
-                <Text style={styles.summaryVal}>
-                  {ROLES.find((r) => r.id === selectedRole)?.label}
+            ) : (
+              <Card>
+                <Text style={styles.cardTitle}>No organization details needed</Text>
+                <Text style={styles.cardBody}>
+                  Household accounts can continue directly to the review step.
                 </Text>
-              </Text>
-              <Text style={styles.summaryRow}>
-                <Text style={styles.summaryKey}>Email: </Text>
-                <Text style={styles.summaryVal}>{watch('email')}</Text>
-              </Text>
-            </View>
+              </Card>
+            )}
           </View>
         )}
 
-        {/* Actions */}
+        {step === 3 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Review your details</Text>
+            <Card>
+              <Text style={styles.reviewRow}>
+                <Text style={styles.reviewKey}>Account type: </Text>
+                {selectedRoleLabel}
+              </Text>
+              <Text style={styles.reviewRow}>
+                <Text style={styles.reviewKey}>Name: </Text>
+                {watch('name')}
+              </Text>
+              <Text style={styles.reviewRow}>
+                <Text style={styles.reviewKey}>Email: </Text>
+                {watch('email')}
+              </Text>
+              {!!watch('phone') && (
+                <Text style={styles.reviewRow}>
+                  <Text style={styles.reviewKey}>Phone: </Text>
+                  {watch('phone')}
+                </Text>
+              )}
+              {requiresOrg && (
+                <Text style={styles.reviewRow}>
+                  <Text style={styles.reviewKey}>Organization: </Text>
+                  {watch('organizationName')}
+                </Text>
+              )}
+            </Card>
+            <Text style={styles.reviewNote}>
+              {requiresOrg
+                ? 'Submitting will create a pending account for admin verification.'
+                : 'Submitting will create your active household account.'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.actions}>
-          {step < STEPS.length - 1 ? (
-            <Button title="Continue" onPress={nextStep} />
-          ) : (
-            <Button
-              title="Create Account"
-              onPress={handleSubmit(onSubmit)}
-              loading={isSubmitting}
-            />
-          )}
+          <Button
+            title={step === STEPS.length - 1 ? 'Create Account' : 'Continue'}
+            onPress={step === STEPS.length - 1 ? handleSubmit(onSubmit) : nextStep}
+            loading={isSubmitting}
+          />
           {step > 0 && (
             <Button
               title="Back"
               variant="ghost"
-              onPress={() => setStep((s) => s - 1)}
-              style={styles.backButton}
+              onPress={() => setStep((current) => current - 1)}
             />
           )}
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation?.navigate('Login')}>
+          <Pressable onPress={() => navigation.navigate('Login')} accessibilityRole="button">
             <Text style={styles.link}>Sign in</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -339,100 +452,93 @@ export default function RegisterScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 48 },
-  header: { marginBottom: 28 },
-  title: { ...typography.displayMedium, color: colors.textPrimary, marginBottom: 6 },
-  subtitle: { ...typography.body, color: colors.textSecondary },
-
-  // Step indicator
-  stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
-  stepItem: { alignItems: 'center', gap: 4 },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
+  },
+  header: { marginBottom: spacing.sm },
+  title: { ...typography.displayMedium, color: colors.textPrimary, marginBottom: spacing.sm },
+  subtitle: { ...typography.body, color: colors.textSecondary, lineHeight: 24 },
+  helper: { ...typography.body, color: colors.textSecondary, marginBottom: spacing.md },
+  stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  stepItem: { alignItems: 'center', gap: spacing.xs },
   stepDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
   },
   stepDotActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepNum: { ...typography.caption, color: colors.textMuted },
-  stepNumActive: { color: colors.textInverse, fontWeight: '700' },
+  stepNumber: { ...typography.caption, color: colors.textMuted },
+  stepNumberActive: { color: colors.textInverse, fontWeight: '700' },
   stepLabel: { ...typography.caption, color: colors.textMuted },
   stepLabelActive: { color: colors.primary },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: colors.border,
+    marginHorizontal: spacing.xs,
     marginBottom: 20,
-    marginHorizontal: 4,
+    backgroundColor: colors.border,
   },
   stepLineActive: { backgroundColor: colors.primary },
-
-  section: { marginBottom: 24 },
-  sectionTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: 16 },
-
-  // Role cards
-  roleList: { gap: 12 },
+  section: { gap: spacing.sm },
+  sectionTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.sm },
+  roleList: { gap: spacing.sm },
   roleCard: {
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
-    gap: 14,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
   },
   roleCardActive: { borderColor: colors.primary, backgroundColor: colors.successSurface },
-  roleEmoji: { fontSize: 28 },
+  roleIcon: { width: 32, textAlign: 'center', fontSize: 26, color: colors.primary },
   roleInfo: { flex: 1 },
   roleLabel: { ...typography.bodyMedium, color: colors.textPrimary },
   roleLabelActive: { color: colors.primary },
-  roleDesc: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border,
+  roleDescription: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  radioOuterActive: { borderColor: colors.primary },
-  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
-
-  orgNote: {
-    marginTop: 14,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
   },
-  orgNoteText: { ...typography.caption, color: colors.textSecondary },
-
-  // Summary card
-  summaryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 8,
-    marginBottom: 8,
+  radioActive: { borderColor: colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: -spacing.sm,
   },
-  summaryTitle: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: 4 },
-  summaryRow: { ...typography.body, color: colors.textSecondary },
-  summaryKey: { color: colors.textMuted },
-  summaryVal: { color: colors.textPrimary },
-
-  actions: { gap: 8, marginBottom: 24 },
-  backButton: { marginTop: 0 },
-
-  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  strengthBars: { flex: 1, flexDirection: 'row', gap: spacing.xs },
+  strengthBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  strengthLabel: { ...typography.caption, width: 48, textAlign: 'right' },
+  cardTitle: { ...typography.bodyMedium, color: colors.textPrimary, marginBottom: spacing.sm },
+  cardBody: { ...typography.body, color: colors.textSecondary, lineHeight: 22 },
+  reviewRow: { ...typography.body, color: colors.textPrimary, marginBottom: spacing.sm },
+  reviewKey: { color: colors.textMuted },
+  reviewNote: { ...typography.caption, color: colors.textSecondary, lineHeight: 20 },
+  actions: { gap: spacing.sm, marginTop: spacing.md },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
   footerText: { ...typography.body, color: colors.textMuted },
   link: { ...typography.bodyMedium, color: colors.primary },
 });
