@@ -13,7 +13,7 @@
  *  • Auto-navigates back after successful action
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -151,6 +151,14 @@ export default function VerificationDetailScreen() {
   const [reviewNote, setReviewNote] = useState('');
   const [submitting, setSubmitting] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navigationTimer.current) clearTimeout(navigationTimer.current);
+    };
+  }, []);
 
   const isProcessed = item.status !== 'PENDING';
 
@@ -189,8 +197,12 @@ export default function VerificationDetailScreen() {
                 });
                 // Update local state
                 setItem((prev) => ({ ...prev, status: decision }));
-                // Show success and navigate back
-                setTimeout(() => navigation.goBack(), 800);
+                setSuccessMessage(
+                  decision === 'APPROVED'
+                    ? 'Verification approved successfully.'
+                    : 'Verification rejected successfully.'
+                );
+                navigationTimer.current = setTimeout(() => navigation.goBack(), 1200);
               } catch (error: unknown) {
                 setError(mapApiError(error, `Failed to ${verb} request.`));
               } finally {
@@ -243,6 +255,12 @@ export default function VerificationDetailScreen() {
           </Text>
         </View>
       </View>
+
+      {successMessage ? (
+        <View style={styles.successToast} accessible accessibilityLiveRegion="polite">
+          <Text style={styles.successToastText}>{successMessage}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.scroll}
@@ -443,6 +461,17 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusPillText: { ...typography.caption, fontWeight: '700' },
+  successToast: {
+    marginHorizontal: 24,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.success + '66',
+    backgroundColor: colors.successSurface,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  successToastText: { ...typography.label, color: colors.success, textAlign: 'center' },
 
   // Applicant card
   applicantCard: {

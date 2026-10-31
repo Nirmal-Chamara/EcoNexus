@@ -5,6 +5,7 @@ import { tokenStorage } from './tokenStorage';
 import type { ApiEnvelope, RefreshTokenResponse } from '../types/user';
 import type { ApiError } from '../types/api';
 import type { ForceLogoutReason } from '../types/session';
+import { setNetworkOffline } from './networkStatus';
 
 export function logoutReasonForError(error: unknown): ForceLogoutReason {
   if (
@@ -96,8 +97,13 @@ apiClient.interceptors.request.use(
 // Response Interceptor — transparent token refresh on 401
 // ─────────────────────────────────────────────
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    setNetworkOffline(false);
+    return response;
+  },
   async (error: AxiosError) => {
+    if (!axios.isCancel(error) && !error.response) setNetworkOffline(true);
+
     const originalRequest = error.config as
       | (InternalAxiosRequestConfig & {
           _retry?: boolean;

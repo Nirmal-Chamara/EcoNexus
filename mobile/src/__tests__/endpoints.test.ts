@@ -45,6 +45,7 @@ const cases: [string, string, () => Promise<unknown>][] = [
   ],
   ['DELETE', '/users/me', () => usersApi.deactivateMe()],
   ['GET', '/admin/users', () => adminApi.getUsers()],
+  ['GET', '/admin/users/id', () => adminApi.getUser('id')],
   ['GET', '/admin/verifications', () => adminApi.getVerifications()],
   ['PATCH', '/admin/users/id/status', () => adminApi.updateUserStatus('id', 'SUSPENDED', 'Test')],
   [

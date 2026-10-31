@@ -168,6 +168,21 @@ test('failed restoration clears partial tokens and leaves the splash even if sto
   expect(result.current.accessToken).toBeNull();
 });
 
+test('temporary network failure during restoration preserves the persisted refresh token', async () => {
+  storage.getRefreshToken.mockResolvedValue('stored');
+  auth.refresh.mockRejectedValueOnce({
+    isAxiosError: true,
+    request: {},
+    message: 'Network Error',
+  });
+
+  const { result } = renderHook(useAuth, { wrapper });
+  await waitFor(() => expect(result.current.status).toBe('signedOut'));
+
+  expect(storage.clearTokens).not.toHaveBeenCalled();
+  expect(result.current.logoutReason).toBeNull();
+});
+
 test('login and token rotation update state; logout clears session despite network failure', async () => {
   const { result } = renderHook(useAuth, { wrapper });
   await waitFor(() => expect(result.current.status).toBe('signedOut'));

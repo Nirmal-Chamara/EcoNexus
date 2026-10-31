@@ -187,18 +187,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
           dispatch({ type: 'RESTORE_SESSION', user });
       } catch (error: unknown) {
         if (!active || version !== sessionVersion.current) return;
-        try {
-          await tokenStorage.clearTokens();
-        } finally {
-          dispatch({
-            type: 'SIGN_OUT',
-            reason:
-              axios.isAxiosError(error) &&
-              (error.response?.status === 401 || error.response?.status === 403)
-                ? logoutReasonForError(error)
-                : undefined,
-          });
-        }
+        const isTemporaryNetworkFailure = axios.isAxiosError(error) && !error.response;
+        if (!isTemporaryNetworkFailure) await tokenStorage.clearTokens().catch(() => {});
+        dispatch({
+          type: 'SIGN_OUT',
+          reason:
+            axios.isAxiosError(error) &&
+            (error.response?.status === 401 || error.response?.status === 403)
+              ? logoutReasonForError(error)
+              : undefined,
+        });
       }
     }
 

@@ -1,4 +1,6 @@
-export { userService as usersApi } from '../services/user.service';
+import { userService } from '../services/user.service';
+
+export const usersApi = userService;
 export type {
   UpdateProfileInput,
   ChangePasswordInput,

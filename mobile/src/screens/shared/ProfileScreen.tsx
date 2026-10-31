@@ -20,6 +20,7 @@ import { Button } from '../../components/common/Button';
 import { tokenStorage } from '../../services/tokenStorage';
 import { userService } from '../../services/user.service';
 import { authenticateBiometric, canUseBiometrics } from '../../services/biometric';
+import RoleGate from '../../navigation/RoleGate';
 
 // ─── Param List ───────────────────────────────────────────────────────────────
 // Each role-specific ProfileStack should define at minimum these routes.
@@ -98,7 +99,14 @@ interface MenuItemProps {
 
 function MenuItem({ icon, label, sublabel, onPress, danger = false, testID }: MenuItemProps) {
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7} testID={testID}>
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={sublabel ? `${label}. ${sublabel}` : label}
+      testID={testID}
+    >
       <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>
         <Text style={styles.menuIconText}>{icon}</Text>
       </View>
@@ -224,15 +232,22 @@ export default function ProfileScreen() {
           >
             <Text style={[styles.badgeText, { color: roleColor }]}>{roleLabel}</Text>
           </View>
-          {/* Status Badge */}
+          {/* Verification Badge */}
           <View
             style={[
               styles.badge,
               { backgroundColor: statusColor + '22', borderColor: statusColor },
             ]}
+            accessible
+            accessibilityLabel={
+              user.status === 'ACTIVE'
+                ? 'Verified account'
+                : `Verification status: ${user.status.replace('_', ' ')}`
+            }
+            testID="profile-verification-badge"
           >
             <Text style={[styles.badgeText, { color: statusColor }]}>
-              {user.status.replace('_', ' ')}
+              {user.status === 'ACTIVE' ? 'Verified' : user.status.replace('_', ' ')}
             </Text>
           </View>
         </View>
@@ -298,6 +313,19 @@ export default function ProfileScreen() {
           />
         </View>
       </View>
+
+      <RoleGate allow={['ADMIN']}>
+        <View
+          accessible
+          accessibilityLabel="Administrator tools are available"
+          style={styles.adminCard}
+        >
+          <Text style={styles.adminCardTitle}>Administrator access</Text>
+          <Text style={styles.adminCardBody}>
+            User management and verification tools are available in the admin tabs.
+          </Text>
+        </View>
+      </RoleGate>
 
       <Modal
         visible={deactivateVisible}
@@ -460,6 +488,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 24,
   },
+  adminCard: {
+    marginHorizontal: 24,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.roleAdmin,
+    backgroundColor: colors.roleAdmin + '11',
+  },
+  adminCardTitle: { ...typography.bodyMedium, color: colors.roleAdmin, marginBottom: 4 },
+  adminCardBody: { ...typography.caption, color: colors.textSecondary, lineHeight: 19 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: colors.overlay,

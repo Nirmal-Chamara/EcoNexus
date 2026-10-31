@@ -8,6 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "test": "jest --runInBand",
+    "test:coverage": "jest --coverage --runInBand",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
@@ -62,6 +63,26 @@
     "preset": "jest-expo",
     "testMatch": [
       "**/src/__tests__/**/*.test.ts"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      },
+      "./src/api/": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      },
+      "./src/schemas/": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      }
+    }
   }
 }

@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 import {
   KeyboardAvoidingView,
+  BackHandler,
   Platform,
   Pressable,
   ScrollView,
@@ -128,6 +129,16 @@ export default function RegisterScreen({ navigation, route }: Props) {
   const requiresOrg = selectedRole === 'COLLECTOR' || selectedRole === 'RECYCLING_CENTER';
   const visibleRoles = partnerMode ? ROLES.filter((role) => role.id !== 'USER') : ROLES;
   const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step === 0) return false;
+      setStep((current) => current - 1);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [step]);
 
   const nextStep = async () => {
     const fields =

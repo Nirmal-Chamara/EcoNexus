@@ -2,6 +2,24 @@ import { Request, Response, NextFunction } from 'express';
 import { pool } from '../config/database';
 import { AppError } from '../utils/AppError';
 
+const MAX_PAGE_SIZE = 100;
+
+function getPagination(query: Request['query']): {
+  page: number;
+  limit: number;
+  offset: number;
+} {
+  const requestedPage = Number(query.page);
+  const requestedLimit = Number(query.limit);
+  const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const limit =
+    Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, MAX_PAGE_SIZE)
+      : 20;
+
+  return { page, limit, offset: (page - 1) * limit };
+}
+
 export class AdminController {
   /**
    * GET /api/admin/users
@@ -9,7 +27,7 @@ export class AdminController {
   static async getUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { search, role, status, page = 1, limit = 20 } = req.query as any;
-      const offset = (page - 1) * limit;
+      const pagination = getPagination({ page, limit });
 
       const filters: string[] = [];
       const values: any[] = [];
@@ -31,7 +49,7 @@ export class AdminController {
 
       const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
 
-      values.push(limit, offset);
+      values.push(pagination.limit, pagination.offset);
       const limitIdx = idx;
       const offsetIdx = idx + 1;
 
@@ -55,9 +73,56 @@ export class AdminController {
         data: result.rows,
         meta: {
           total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
+          page: pagination.page,
+          limit: pagination.limit,
+          totalPages: Math.ceil(total / pagination.limit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/admin/users/:id
+   * Return a full admin profile plus recent audit activity for the user.
+   */
+  static async getUserById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userResult = await pool.query(
+        `SELECT id, name, email, phone, role, status, created_at, updated_at
+         FROM users
+         WHERE id = $1`,
+        [id]
+      );
+
+      if (userResult.rows.length === 0) {
+        throw new AppError(404, 'User not found', 'NOT_FOUND');
+      }
+
+      const activityResult = await pool.query(
+        `SELECT
+           a.id,
+           a.action,
+           a.target_id,
+           a.meta,
+           a.created_at,
+           a.actor_id,
+           COALESCE(actor.name, 'System') AS actor_name
+         FROM audit_logs a
+         LEFT JOIN users actor ON actor.id = a.actor_id
+         WHERE a.target_id = $1
+         ORDER BY a.created_at DESC
+         LIMIT 20`,
+        [id]
+      );
+
+      res.status(200).json({
+        message: 'User details retrieved successfully',
+        data: {
+          ...userResult.rows[0],
+          activity: activityResult.rows,
         },
       });
     } catch (error) {
@@ -135,7 +200,7 @@ export class AdminController {
   static async getVerifications(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { status, page = 1, limit = 20 } = req.query as any;
-      const offset = (page - 1) * limit;
+      const pagination = getPagination({ page, limit });
 
       let whereClause = '';
       const values: any[] = [];
@@ -146,7 +211,7 @@ export class AdminController {
         values.push(status);
       }
 
-      values.push(limit, offset);
+      values.push(pagination.limit, pagination.offset);
       const limitIdx = idx;
       const offsetIdx = idx + 1;
 
@@ -173,9 +238,9 @@ export class AdminController {
         data: result.rows,
         meta: {
           total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
+          page: pagination.page,
+          limit: pagination.limit,
+          totalPages: Math.ceil(total / pagination.limit),
         },
       });
     } catch (error) {
@@ -226,9 +291,12 @@ export class AdminController {
           [verification.requested_role, verification.user_id]
         );
       } else if (status === 'REJECTED') {
-         // Maybe set user status to REJECTED if they were pending verification?
-         // In typical flows, the user stays USER and their verification is just rejected.
-         // Let's assume they stay USER but status doesn't change unless we specifically want to.
+        await client.query(
+          `UPDATE users
+           SET status = 'REJECTED', token_version = token_version + 1, updated_at = NOW()
+           WHERE id = $1`,
+          [verification.user_id]
+        );
       }
 
       // 4. Audit Log

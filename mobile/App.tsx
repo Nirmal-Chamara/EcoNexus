@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import NetworkStatusBanner from './src/components/common/NetworkStatusBanner';
 import ThemePreviewScreen from './src/screens/dev/ThemePreviewScreen';
 import ComponentGalleryScreen from './src/screens/dev/ComponentGalleryScreen';
 
@@ -29,8 +30,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
+        <NetworkStatusBanner />
         <RootNavigator />
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
       </AuthProvider>
       {__DEV__ && (
         <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>

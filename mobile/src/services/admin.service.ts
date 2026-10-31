@@ -34,6 +34,21 @@ export interface GetUsersResponse {
   meta: PaginatedMeta;
 }
 
+export interface AdminAuditLog {
+  id: number;
+  action: string;
+  target_id: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+  actor_id: string | null;
+  actor_name: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  updated_at: string;
+  activity: AdminAuditLog[];
+}
+
 // ─── Verification Types ────────────────────────────────────────────────────────
 
 export interface GetVerificationsParams {
@@ -70,6 +85,17 @@ export const adminService = {
         limit: params.limit ?? 20,
       },
     });
+    return response.data;
+  },
+
+  /**
+   * GET /api/admin/users/:id
+   * Fetch a full profile and recent audit activity for one user.
+   */
+  async getUser(userId: string): Promise<{ message: string; data: AdminUserDetail }> {
+    const response = await apiClient.get<{ message: string; data: AdminUserDetail }>(
+      `/admin/users/${userId}`
+    );
     return response.data;
   },
 
