@@ -3,6 +3,8 @@ import { env } from '../config/env';
 import { hashPassword, verifyPassword, dummyVerifyPassword } from '../utils/password';
 import { signAccessToken, hashToken, generateRefreshToken } from '../utils/tokens';
 import { generateRandomToken } from '../utils/crypto';
+import { hashSha256 } from '../utils/crypto';
+import { sendPasswordResetEmail } from './email.service';
 import { AppError } from '../utils/AppError';
 import { RegisterInput, LoginInput } from '../validators/auth.validator';
 import { UserRole, AccountStatus } from '../types/express.d';
@@ -48,6 +50,14 @@ export class AuthService {
       );
 
       const user = userRes.rows[0];
+
+      if (input.role === 'COLLECTOR' || input.role === 'RECYCLING_CENTER') {
+        await client.query(
+          `INSERT INTO verification_requests (user_id, requested_role, organization_name)
+           VALUES ($1, $2, $3)`,
+          [user.id, input.role, input.organizationName]
+        );
+      }
 
       // Issue tokens
       const rawRefreshToken = generateRefreshToken();
@@ -258,5 +268,78 @@ export class AuthService {
       `UPDATE users SET token_version = token_version + 1 WHERE id = $1`,
       [userId]
     );
+  }
+
+  static async requestPasswordReset(email: string): Promise<void> {
+    const result = await pool.query<{ id: string; email: string }>(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+    const user = result.rows[0];
+    if (!user) return;
+
+    const token = generateRandomToken(32);
+    const tokenHash = hashSha256(token);
+    await pool.query(
+      `UPDATE password_reset_tokens
+       SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [user.id]
+    );
+    await pool.query(
+      `INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+      [tokenHash, user.id]
+    );
+
+    try {
+      await sendPasswordResetEmail(user.email, token);
+    } catch {
+      await pool.query(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
+        [tokenHash]
+      );
+      console.error('Password reset email delivery failed');
+    }
+  }
+
+  static async resetPassword(token: string, newPassword: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tokenResult = await client.query<{ token_hash: string; user_id: string }>(
+        `SELECT token_hash, user_id
+         FROM password_reset_tokens
+         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+         FOR UPDATE`,
+        [hashSha256(token)]
+      );
+      const resetRecord = tokenResult.rows[0];
+      if (!resetRecord) {
+        throw new AppError(400, 'Reset code is invalid or expired', 'INVALID_RESET_TOKEN');
+      }
+
+      const passwordHash = await hashPassword(newPassword);
+      await client.query(
+        `UPDATE users
+         SET password_hash = $1, token_version = token_version + 1, updated_at = NOW()
+         WHERE id = $2`,
+        [passwordHash, resetRecord.user_id]
+      );
+      await client.query(
+        'UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1',
+        [resetRecord.user_id]
+      );
+      await client.query(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
+        [resetRecord.token_hash]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }

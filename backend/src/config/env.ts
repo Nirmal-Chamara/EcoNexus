@@ -14,4 +14,9 @@ export const env = {
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@econexus.com',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'AdminPass123!',
   ADMIN_NAME: process.env.ADMIN_NAME || 'System Administrator',
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || '',
 };

@@ -74,8 +74,20 @@ export class AdminController {
       await client.query('BEGIN');
 
       const { id } = req.params;
-      const { status } = req.body;
+      const { status, reason } = req.body;
       const actorId = req.user?.id;
+
+      if (actorId === id) {
+        throw new AppError(400, 'You cannot change your own account status', 'SELF_STATUS_CHANGE');
+      }
+
+      const currentRes = await client.query(
+        'SELECT status FROM users WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      if (currentRes.rows.length === 0) {
+        throw new AppError(404, 'User not found', 'NOT_FOUND');
+      }
 
       // Update user status and bump token version to invalidate sessions
       const updateRes = await client.query(
@@ -99,7 +111,7 @@ export class AdminController {
           actorId,
           `USER_STATUS_CHANGED_TO_${status}`,
           id,
-          { previous_status: targetUser.status, new_status: status },
+          { previous_status: currentRes.rows[0].status, new_status: status, reason },
         ]
       );
 

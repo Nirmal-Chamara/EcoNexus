@@ -1,7 +1,8 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { env } from '../config/env';
 import { tokenStorage } from './tokenStorage';
-import { RefreshTokenResponse } from '../types/user';
+import type { ApiEnvelope, RefreshTokenResponse } from '../types/user';
 
 // ─────────────────────────────────────────────
 // Axios Instance
@@ -21,10 +22,10 @@ export const apiClient = axios.create({
 // each triggering an independent refresh request.
 // ─────────────────────────────────────────────
 let isRefreshing = false;
-let refreshQueue: Array<{
+let refreshQueue: {
   resolve: (token: string) => void;
   reject: (err: unknown) => void;
-}> = [];
+}[] = [];
 
 function resolveQueue(newAccessToken: string): void {
   refreshQueue.forEach(({ resolve }) => resolve(newAccessToken));
@@ -50,7 +51,7 @@ export function registerForceLogoutHandler(handler: ForceLogoutHandler): void {
 
 export function triggerForceLogout(): void {
   if (_forceLogoutHandler) {
-    _forceLogoutHandler();
+    void _forceLogoutHandler();
   }
 }
 
@@ -74,18 +75,24 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & {
-      _retry?: boolean;
-    };
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        })
+      | undefined;
 
     // Only handle 401 Unauthorized errors that haven't been retried already
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
       return Promise.reject(error);
     }
 
     // Skip refresh attempt for auth endpoints themselves
     const url = originalRequest.url || '';
-    if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
+    if (
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh')
+    ) {
       return Promise.reject(error);
     }
 
@@ -95,6 +102,7 @@ apiClient.interceptors.response.use(
         refreshQueue.push({ resolve, reject });
       })
         .then((newAccessToken) => {
+          originalRequest._retry = true;
           originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
           return apiClient(originalRequest);
         })
@@ -112,16 +120,20 @@ apiClient.interceptors.response.use(
         throw new Error('No refresh token stored');
       }
 
-      const response = await axios.post<RefreshTokenResponse>(
-        `${env.API_URL}/auth/refresh`,
+      const response = await axios.post<ApiEnvelope<RefreshTokenResponse>>(
+        `${env.API_URL}/auth/refresh-token`,
         { refreshToken: storedRefreshToken },
         { headers: { 'Content-Type': 'application/json' } }
       );
 
-      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
 
       // Persist rotated tokens
-      await tokenStorage.saveTokens(newAccessToken, newRefreshToken);
+      await tokenStorage.saveTokens(
+        newAccessToken,
+        newRefreshToken,
+        await tokenStorage.getKeepSignedIn()
+      );
 
       // Unblock all queued requests
       resolveQueue(newAccessToken);

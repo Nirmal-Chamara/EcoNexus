@@ -70,3 +70,6 @@ const styles = StyleSheet.create({
   },
   message: { ...typography.body, color: colors.textMuted, marginTop: 80 },
 });
+
+// Support both named and default imports
+export default LoadingSpinner;
