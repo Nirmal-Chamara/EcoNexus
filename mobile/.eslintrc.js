@@ -15,7 +15,9 @@ module.exports = {
   },
   rules: {
     // ── Prettier integration ──────────────────────────────────────
-    'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    // Keep off so formatting (quotes, spaces, linebreaks) doesn't produce
+    // intrusive ESLint errors while typing; formatting is handled by Prettier.
+    'prettier/prettier': 'off',
 
     // ── TypeScript ────────────────────────────────────────────────
     '@typescript-eslint/no-explicit-any': 'error',

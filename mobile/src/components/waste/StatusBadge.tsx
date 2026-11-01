@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 import AppText from './AppText';
-import { colors, radii } from '../../theme/wasteTheme';
+import { colors, fonts, radii } from '../../theme/wasteTheme';
 
 const MAP: Record<string, { label: string; bg: string; fg: string }> = {
   draft: { label: 'Draft / Unlisted', bg: '#E8EAF3', fg: '#565E70' },
@@ -16,7 +16,7 @@ export default function StatusBadge({ status }: { status: string }) {
   return (
     <View style={[styles.badge, { backgroundColor: s.bg }]}>
       <View style={[styles.dot, { backgroundColor: s.fg }]} />
-      <AppText variant="caption" color={s.fg} style={{ fontFamily: 'Inter_600SemiBold' }}>
+      <AppText variant="caption" color={s.fg} style={styles.label}>
         {s.label}
       </AppText>
     </View>
@@ -34,4 +34,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
+  label: { fontFamily: fonts.bodySemi },
 });

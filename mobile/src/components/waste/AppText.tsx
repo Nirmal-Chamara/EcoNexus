@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-imports */
+/* eslint-disable @typescript-eslint/consistent-type-imports, react-native/no-unused-styles */
 import { Text, TextProps, StyleSheet } from 'react-native';
 import { colors, fonts } from '../../theme/wasteTheme';
 
@@ -24,7 +24,6 @@ const styles = StyleSheet.create({
   body: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.ink },
   bodyStrong: { fontFamily: fonts.bodySemi, fontSize: 14, lineHeight: 20, color: colors.ink },
   muted: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.textMuted },
-  // eslint-disable-next-line react-native/no-unused-styles
   caption: { fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 16, color: colors.textMuted },
   label: {
     fontFamily: fonts.bodySemi,

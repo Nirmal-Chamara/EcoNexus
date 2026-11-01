@@ -90,10 +90,10 @@ export const adminService = {
   async getUsers(params: GetUsersParams = {}): Promise<GetUsersResponse> {
     const response = await apiClient.get<GetUsersResponse>('/admin/users', {
       params: {
-        ...(params.search  ? { search: params.search }  : {}),
-        ...(params.role    ? { role:   params.role }    : {}),
-        ...(params.status  ? { status: params.status }  : {}),
-        page:  params.page  ?? 1,
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.role ? { role: params.role } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        page: params.page ?? 1,
         limit: params.limit ?? 20,
       },
     });
@@ -107,11 +107,11 @@ export const adminService = {
   async updateUserStatus(
     userId: string,
     status: AccountStatus,
-    reason?: string,
+    reason?: string
   ): Promise<{ message: string; data: AdminUser }> {
     const response = await apiClient.patch<{ message: string; data: AdminUser }>(
       `/admin/users/${userId}/status`,
-      { status, ...(reason ? { reason } : {}) },
+      { status, ...(reason ? { reason } : {}) }
     );
     return response.data;
   },
@@ -120,19 +120,14 @@ export const adminService = {
    * GET /api/admin/verifications
    * Fetch paginated verification queue.
    */
-  async getVerifications(
-    params: GetVerificationsParams = {},
-  ): Promise<GetVerificationsResponse> {
-    const response = await apiClient.get<GetVerificationsResponse>(
-      '/admin/verifications',
-      {
-        params: {
-          ...(params.status ? { status: params.status } : {}),
-          page:  params.page  ?? 1,
-          limit: params.limit ?? 20,
-        },
+  async getVerifications(params: GetVerificationsParams = {}): Promise<GetVerificationsResponse> {
+    const response = await apiClient.get<GetVerificationsResponse>('/admin/verifications', {
+      params: {
+        ...(params.status ? { status: params.status } : {}),
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
       },
-    );
+    });
     return response.data;
   },
 
@@ -142,11 +137,11 @@ export const adminService = {
    */
   async processVerification(
     verificationId: string,
-    input: ProcessVerificationInput,
+    input: ProcessVerificationInput
   ): Promise<{ message: string }> {
     const response = await apiClient.patch<{ message: string }>(
       `/admin/verifications/${verificationId}/process`,
-      input,
+      input
     );
     return response.data;
   },

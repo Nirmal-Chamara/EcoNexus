@@ -12,12 +12,7 @@
  *  • Tap to navigate → VerificationDetailScreen
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -48,8 +43,8 @@ import { UserRole } from '../../types/user';
 type NavProp = NativeStackNavigationProp<AdminVerificationsStackParamList, 'VerificationQueue'>;
 
 const STATUS_TABS: Array<{ label: string; value: VerificationStatus | '' }> = [
-  { label: 'All',      value: ''         },
-  { label: 'Pending',  value: 'PENDING'  },
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'PENDING' },
   { label: 'Approved', value: 'APPROVED' },
   { label: 'Rejected', value: 'REJECTED' },
 ];
@@ -58,31 +53,46 @@ const STATUS_TABS: Array<{ label: string; value: VerificationStatus | '' }> = [
 
 function getVerificationStatusColor(status: VerificationStatus): string {
   switch (status) {
-    case 'PENDING':  return colors.warning;
-    case 'APPROVED': return colors.success;
-    case 'REJECTED': return colors.error;
-    default:         return colors.textMuted;
+    case 'PENDING':
+      return colors.warning;
+    case 'APPROVED':
+      return colors.success;
+    case 'REJECTED':
+      return colors.error;
+    default:
+      return colors.textMuted;
   }
 }
 
 function getRoleLabel(role: UserRole): string {
   switch (role) {
-    case 'COLLECTOR':        return 'Waste Collector';
-    case 'RECYCLING_CENTER': return 'Recycling Center';
-    default:                 return role;
+    case 'COLLECTOR':
+      return 'Waste Collector';
+    case 'RECYCLING_CENTER':
+      return 'Recycling Center';
+    default:
+      return role;
   }
 }
 
 function getRoleColor(role: UserRole): string {
   switch (role) {
-    case 'COLLECTOR':        return colors.roleCollector;
-    case 'RECYCLING_CENTER': return colors.roleCenter;
-    default:                 return colors.textMuted;
+    case 'COLLECTOR':
+      return colors.roleCollector;
+    case 'RECYCLING_CENTER':
+      return colors.roleCenter;
+    default:
+      return colors.textMuted;
   }
 }
 
 function getInitials(name: string): string {
-  return name.trim().split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
+  return name
+    .trim()
+    .split(' ')
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
 }
 
 function timeAgo(iso: string): string {
@@ -108,8 +118,8 @@ interface VerificationCardProps {
 
 function VerificationCard({ item, onPress }: VerificationCardProps) {
   const statusColor = getVerificationStatusColor(item.status);
-  const roleColor   = getRoleColor(item.requested_role);
-  const initials    = getInitials(item.user_name);
+  const roleColor = getRoleColor(item.requested_role);
+  const initials = getInitials(item.user_name);
 
   return (
     <TouchableOpacity
@@ -125,18 +135,32 @@ function VerificationCard({ item, onPress }: VerificationCardProps) {
         {/* Header row */}
         <View style={styles.cardHeader}>
           {/* Avatar */}
-          <View style={[styles.cardAvatar, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
+          <View
+            style={[
+              styles.cardAvatar,
+              { backgroundColor: roleColor + '22', borderColor: roleColor },
+            ]}
+          >
             <Text style={[styles.cardAvatarText, { color: roleColor }]}>{initials}</Text>
           </View>
 
           {/* Name + Email */}
           <View style={styles.cardMeta}>
-            <Text style={styles.cardName} numberOfLines={1}>{item.user_name}</Text>
-            <Text style={styles.cardEmail} numberOfLines={1}>{item.user_email}</Text>
+            <Text style={styles.cardName} numberOfLines={1}>
+              {item.user_name}
+            </Text>
+            <Text style={styles.cardEmail} numberOfLines={1}>
+              {item.user_email}
+            </Text>
           </View>
 
           {/* Status badge */}
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '22', borderColor: statusColor }]}>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: statusColor + '22', borderColor: statusColor },
+            ]}
+          >
             <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
             <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
           </View>
@@ -144,13 +168,17 @@ function VerificationCard({ item, onPress }: VerificationCardProps) {
 
         {/* Role + Org */}
         <View style={styles.cardDetails}>
-          <View style={[styles.rolePill, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
+          <View
+            style={[styles.rolePill, { backgroundColor: roleColor + '22', borderColor: roleColor }]}
+          >
             <Text style={[styles.rolePillText, { color: roleColor }]}>
               {getRoleLabel(item.requested_role)}
             </Text>
           </View>
           {item.organization_name ? (
-            <Text style={styles.orgText} numberOfLines={1}>🏢 {item.organization_name}</Text>
+            <Text style={styles.orgText} numberOfLines={1}>
+              🏢 {item.organization_name}
+            </Text>
           ) : null}
         </View>
 
@@ -181,10 +209,14 @@ interface StatusTabProps {
 }
 
 function StatusTab({ label, value, active, pendingCount, onPress }: StatusTabProps) {
-  const activeColor = value === 'PENDING'  ? colors.warning
-                    : value === 'APPROVED' ? colors.success
-                    : value === 'REJECTED' ? colors.error
-                    : colors.roleAdmin;
+  const activeColor =
+    value === 'PENDING'
+      ? colors.warning
+      : value === 'APPROVED'
+        ? colors.success
+        : value === 'REJECTED'
+          ? colors.error
+          : colors.roleAdmin;
   return (
     <TouchableOpacity
       style={[styles.tab, active && { borderBottomWidth: 2, borderBottomColor: activeColor }]}
@@ -208,22 +240,27 @@ const PAGE_SIZE = 20;
 export default function VerificationQueueScreen() {
   const navigation = useNavigation<NavProp>();
 
-  const [items,       setItems]       = useState<VerificationRequest[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
+  const [items, setItems] = useState<VerificationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<VerificationStatus | ''>('PENDING');
 
-  const pageRef       = useRef(1);
+  const pageRef = useRef(1);
   const totalPagesRef = useRef(1);
 
   // Shimmer
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
-      Animated.timing(shimmerAnim, { toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true })
+      Animated.timing(shimmerAnim, {
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
     ).start();
   }, []);
 
@@ -242,7 +279,7 @@ export default function VerificationQueueScreen() {
         });
 
         totalPagesRef.current = res.meta.totalPages;
-        setItems((prev) => page === 1 ? res.data : [...prev, ...res.data]);
+        setItems((prev) => (page === 1 ? res.data : [...prev, ...res.data]));
         pageRef.current = page;
 
         // Fetch pending count for badge when on "All" or "Pending" tab
@@ -266,8 +303,11 @@ export default function VerificationQueueScreen() {
     fetchItems(1);
   }, [fetchItems]);
 
-  const handleRefresh   = useCallback(() => { pageRef.current = 1; fetchItems(1, true); }, [fetchItems]);
-  const handleLoadMore  = useCallback(() => {
+  const handleRefresh = useCallback(() => {
+    pageRef.current = 1;
+    fetchItems(1, true);
+  }, [fetchItems]);
+  const handleLoadMore = useCallback(() => {
     if (loadingMore || pageRef.current >= totalPagesRef.current) return;
     fetchItems(pageRef.current + 1);
   }, [loadingMore, fetchItems]);
@@ -286,7 +326,8 @@ export default function VerificationQueueScreen() {
   const keyExtractor = (item: VerificationRequest) => item.id;
 
   const shimmerOpacity = shimmerAnim.interpolate({
-    inputRange: [0, 0.5, 1], outputRange: [0.3, 0.7, 0.3],
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.7, 0.3],
   });
 
   const renderSkeleton = () => (
@@ -309,9 +350,7 @@ export default function VerificationQueueScreen() {
   const renderEmpty = () =>
     !loading ? (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyEmoji}>
-          {activeTab === 'PENDING' ? '🎉' : '📭'}
-        </Text>
+        <Text style={styles.emptyEmoji}>{activeTab === 'PENDING' ? '🎉' : '📭'}</Text>
         <Text style={styles.emptyTitle}>
           {activeTab === 'PENDING' ? 'Queue is clear!' : 'No requests found'}
         </Text>
@@ -404,7 +443,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 8,
   },
-  headerTitle:    { ...typography.h1, color: colors.textPrimary },
+  headerTitle: { ...typography.h1, color: colors.textPrimary },
   headerSubtitle: { ...typography.label, color: colors.textMuted, marginTop: 2 },
 
   // Tabs
@@ -432,7 +471,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  badgeText: { ...typography.caption, color: colors.textInverse, fontWeight: '700', lineHeight: 14 },
+  badgeText: {
+    ...typography.caption,
+    color: colors.textInverse,
+    fontWeight: '700',
+    lineHeight: 14,
+  },
 
   // Error
   errorBanner: {
@@ -448,8 +492,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  errorText:  { ...typography.label, color: colors.error, flex: 1 },
-  retryText:  { ...typography.label, color: colors.roleAdmin, marginLeft: 12 },
+  errorText: { ...typography.label, color: colors.error, flex: 1 },
+  retryText: { ...typography.label, color: colors.roleAdmin, marginLeft: 12 },
 
   // List
   listContent: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 4 },
@@ -466,35 +510,51 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardAccent: { width: 4 },
-  cardBody:   { flex: 1, padding: 14 },
+  cardBody: { flex: 1, padding: 14 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   cardAvatar: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardAvatarText: { fontSize: 14, fontWeight: '700' },
-  cardMeta:    { flex: 1, minWidth: 0 },
-  cardName:    { ...typography.bodyMedium, color: colors.textPrimary },
-  cardEmail:   { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  cardMeta: { flex: 1, minWidth: 0 },
+  cardName: { ...typography.bodyMedium, color: colors.textPrimary },
+  cardEmail: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
   statusBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 12, borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  statusDot:  { width: 5, height: 5, borderRadius: 3 },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
   statusText: { ...typography.caption, fontWeight: '700' },
   cardDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   rolePill: {
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   rolePillText: { ...typography.caption, fontWeight: '600' },
-  orgText:     { ...typography.caption, color: colors.textSecondary, flex: 1 },
-  cardFooter:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  timeText:    { ...typography.caption, color: colors.textMuted },
-  docTag:      { ...typography.caption, color: colors.info },
-  noDocTag:    { ...typography.caption, color: colors.textMuted },
-  chevron:     { fontSize: 20, color: colors.textMuted, alignSelf: 'center', paddingRight: 12, lineHeight: 24 },
+  orgText: { ...typography.caption, color: colors.textSecondary, flex: 1 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  timeText: { ...typography.caption, color: colors.textMuted },
+  docTag: { ...typography.caption, color: colors.info },
+  noDocTag: { ...typography.caption, color: colors.textMuted },
+  chevron: {
+    fontSize: 20,
+    color: colors.textMuted,
+    alignSelf: 'center',
+    paddingRight: 12,
+    lineHeight: 24,
+  },
 
   // Skeleton
   skeletonContainer: { paddingHorizontal: 24, paddingTop: 4 },
@@ -509,16 +569,16 @@ const styles = StyleSheet.create({
     height: 90,
   },
   skeletonAccent: { width: 4, backgroundColor: colors.surfaceAlt },
-  skeletonBody:   { flex: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  skeletonBody: { flex: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   skeletonAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceAlt },
-  skeletonLines:  { flex: 1 },
-  skeletonLine:   { height: 13, borderRadius: 6, backgroundColor: colors.surfaceAlt },
+  skeletonLines: { flex: 1 },
+  skeletonLine: { height: 13, borderRadius: 6, backgroundColor: colors.surfaceAlt },
 
   // Empty
   emptyContainer: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyEmoji:     { fontSize: 52, marginBottom: 12 },
-  emptyTitle:     { ...typography.h3, color: colors.textPrimary, marginBottom: 8 },
-  emptyText:      { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+  emptyEmoji: { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { ...typography.h3, color: colors.textPrimary, marginBottom: 8 },
+  emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
 
   // Footer
   footerLoader: { paddingVertical: 16, alignItems: 'center' },

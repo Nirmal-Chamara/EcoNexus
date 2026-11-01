@@ -12,12 +12,7 @@
  *  • Tap to navigate → UserDetailScreen
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -45,60 +40,80 @@ import { UserRole, AccountStatus } from '../../types/user';
 type NavProp = NativeStackNavigationProp<AdminUsersStackParamList, 'UserList'>;
 
 const ROLE_FILTERS: Array<{ label: string; value: UserRole | '' }> = [
-  { label: 'All',       value: ''                 },
-  { label: 'User',      value: 'USER'             },
-  { label: 'Collector', value: 'COLLECTOR'        },
-  { label: 'Center',    value: 'RECYCLING_CENTER' },
-  { label: 'Admin',     value: 'ADMIN'            },
+  { label: 'All', value: '' },
+  { label: 'User', value: 'USER' },
+  { label: 'Collector', value: 'COLLECTOR' },
+  { label: 'Center', value: 'RECYCLING_CENTER' },
+  { label: 'Admin', value: 'ADMIN' },
 ];
 
 const STATUS_FILTERS: Array<{ label: string; value: AccountStatus | '' }> = [
-  { label: 'All',      value: ''                     },
-  { label: 'Active',   value: 'ACTIVE'               },
-  { label: 'Pending',  value: 'PENDING_VERIFICATION' },
-  { label: 'Rejected', value: 'REJECTED'             },
-  { label: 'Suspended',value: 'SUSPENDED'            },
+  { label: 'All', value: '' },
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Pending', value: 'PENDING_VERIFICATION' },
+  { label: 'Rejected', value: 'REJECTED' },
+  { label: 'Suspended', value: 'SUSPENDED' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRoleColor(role: UserRole): string {
   switch (role) {
-    case 'USER':             return colors.roleUser;
-    case 'COLLECTOR':        return colors.roleCollector;
-    case 'RECYCLING_CENTER': return colors.roleCenter;
-    case 'ADMIN':            return colors.roleAdmin;
-    default:                 return colors.textMuted;
+    case 'USER':
+      return colors.roleUser;
+    case 'COLLECTOR':
+      return colors.roleCollector;
+    case 'RECYCLING_CENTER':
+      return colors.roleCenter;
+    case 'ADMIN':
+      return colors.roleAdmin;
+    default:
+      return colors.textMuted;
   }
 }
 
 function getRoleLabel(role: UserRole): string {
   switch (role) {
-    case 'USER':             return 'User';
-    case 'COLLECTOR':        return 'Collector';
-    case 'RECYCLING_CENTER': return 'Center';
-    case 'ADMIN':            return 'Admin';
-    default:                 return role;
+    case 'USER':
+      return 'User';
+    case 'COLLECTOR':
+      return 'Collector';
+    case 'RECYCLING_CENTER':
+      return 'Center';
+    case 'ADMIN':
+      return 'Admin';
+    default:
+      return role;
   }
 }
 
 function getStatusColor(status: AccountStatus): string {
   switch (status) {
-    case 'ACTIVE':               return colors.success;
-    case 'PENDING_VERIFICATION': return colors.warning;
-    case 'REJECTED':             return colors.error;
-    case 'SUSPENDED':            return colors.error;
-    default:                     return colors.textMuted;
+    case 'ACTIVE':
+      return colors.success;
+    case 'PENDING_VERIFICATION':
+      return colors.warning;
+    case 'REJECTED':
+      return colors.error;
+    case 'SUSPENDED':
+      return colors.error;
+    default:
+      return colors.textMuted;
   }
 }
 
 function getStatusLabel(status: AccountStatus): string {
   switch (status) {
-    case 'ACTIVE':               return 'Active';
-    case 'PENDING_VERIFICATION': return 'Pending';
-    case 'REJECTED':             return 'Rejected';
-    case 'SUSPENDED':            return 'Suspended';
-    default:                     return status;
+    case 'ACTIVE':
+      return 'Active';
+    case 'PENDING_VERIFICATION':
+      return 'Pending';
+    case 'REJECTED':
+      return 'Rejected';
+    case 'SUSPENDED':
+      return 'Suspended';
+    default:
+      return status;
   }
 }
 
@@ -119,9 +134,9 @@ interface UserCardProps {
 }
 
 function UserCard({ user, onPress }: UserCardProps) {
-  const roleColor   = getRoleColor(user.role);
+  const roleColor = getRoleColor(user.role);
   const statusColor = getStatusColor(user.status);
-  const initials    = getInitials(user.name);
+  const initials = getInitials(user.name);
 
   return (
     <TouchableOpacity
@@ -131,16 +146,24 @@ function UserCard({ user, onPress }: UserCardProps) {
       testID={`user-card-${user.id}`}
     >
       {/* Avatar */}
-      <View style={[styles.cardAvatar, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
+      <View
+        style={[styles.cardAvatar, { backgroundColor: roleColor + '22', borderColor: roleColor }]}
+      >
         <Text style={[styles.cardAvatarText, { color: roleColor }]}>{initials}</Text>
       </View>
 
       {/* Info */}
       <View style={styles.cardInfo}>
-        <Text style={styles.cardName} numberOfLines={1}>{user.name}</Text>
-        <Text style={styles.cardEmail} numberOfLines={1}>{user.email}</Text>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {user.name}
+        </Text>
+        <Text style={styles.cardEmail} numberOfLines={1}>
+          {user.email}
+        </Text>
         {user.phone ? (
-          <Text style={styles.cardPhone} numberOfLines={1}>📱 {user.phone}</Text>
+          <Text style={styles.cardPhone} numberOfLines={1}>
+            📱 {user.phone}
+          </Text>
         ) : null}
       </View>
 
@@ -149,8 +172,12 @@ function UserCard({ user, onPress }: UserCardProps) {
         <View style={[styles.badge, { backgroundColor: roleColor + '22', borderColor: roleColor }]}>
           <Text style={[styles.badgeText, { color: roleColor }]}>{getRoleLabel(user.role)}</Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: statusColor + '22', borderColor: statusColor }]}>
-          <Text style={[styles.badgeText, { color: statusColor }]}>{getStatusLabel(user.status)}</Text>
+        <View
+          style={[styles.badge, { backgroundColor: statusColor + '22', borderColor: statusColor }]}
+        >
+          <Text style={[styles.badgeText, { color: statusColor }]}>
+            {getStatusLabel(user.status)}
+          </Text>
         </View>
       </View>
 
@@ -191,19 +218,19 @@ const PAGE_SIZE = 20;
 export default function UserListScreen() {
   const navigation = useNavigation<NavProp>();
 
-  const [users,       setUsers]       = useState<AdminUser[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [search,       setSearch]       = useState('');
-  const [roleFilter,   setRoleFilter]   = useState<UserRole | ''>('');
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | ''>('');
 
-  const pageRef      = useRef(1);
+  const pageRef = useRef(1);
   const totalPagesRef = useRef(1);
-  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchDebounced = useRef('');
 
   // ── Skeleton shimmer ───────────────────────────────────────────────────────
@@ -211,7 +238,10 @@ export default function UserListScreen() {
   useEffect(() => {
     Animated.loop(
       Animated.timing(shimmerAnim, {
-        toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true,
+        toValue: 1,
+        duration: 1200,
+        easing: Easing.linear,
+        useNativeDriver: true,
       })
     ).start();
   }, []);
@@ -227,7 +257,7 @@ export default function UserListScreen() {
 
         const params: GetUsersParams = {
           search: searchDebounced.current || undefined,
-          role:   roleFilter   || undefined,
+          role: roleFilter || undefined,
           status: statusFilter || undefined,
           page,
           limit: PAGE_SIZE,
@@ -236,7 +266,7 @@ export default function UserListScreen() {
         const res = await adminService.getUsers(params);
         totalPagesRef.current = res.meta.totalPages;
 
-        setUsers((prev) => page === 1 ? res.data : [...prev, ...res.data]);
+        setUsers((prev) => (page === 1 ? res.data : [...prev, ...res.data]));
         pageRef.current = page;
       } catch (err: any) {
         setError(err?.response?.data?.message ?? 'Failed to load users. Please try again.');
@@ -263,7 +293,9 @@ export default function UserListScreen() {
       pageRef.current = 1;
       fetchUsers(1);
     }, 400);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [search, fetchUsers]);
 
   const handleRefresh = useCallback(() => {
@@ -279,17 +311,17 @@ export default function UserListScreen() {
   // ── Render helpers ─────────────────────────────────────────────────────────
   const renderUser: ListRenderItem<AdminUser> = useCallback(
     ({ item }) => (
-      <UserCard
-        user={item}
-        onPress={() => navigation.navigate('UserDetail', { user: item })}
-      />
+      <UserCard user={item} onPress={() => navigation.navigate('UserDetail', { user: item })} />
     ),
     [navigation]
   );
 
   const keyExtractor = (item: AdminUser) => item.id;
 
-  const shimmerOpacity = shimmerAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 0.7, 0.3] });
+  const shimmerOpacity = shimmerAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.3, 0.7, 0.3],
+  });
 
   const renderSkeleton = () => (
     <View style={styles.skeletonContainer}>
@@ -362,7 +394,10 @@ export default function UserListScreen() {
               label={f.label}
               active={roleFilter === f.value}
               accentColor={colors.roleAdmin}
-              onPress={() => { setRoleFilter(f.value as UserRole | ''); pageRef.current = 1; }}
+              onPress={() => {
+                setRoleFilter(f.value as UserRole | '');
+                pageRef.current = 1;
+              }}
             />
           ))}
         </View>
@@ -378,7 +413,10 @@ export default function UserListScreen() {
               label={f.label}
               active={statusFilter === f.value}
               accentColor={colors.info}
-              onPress={() => { setStatusFilter(f.value as AccountStatus | ''); pageRef.current = 1; }}
+              onPress={() => {
+                setStatusFilter(f.value as AccountStatus | '');
+                pageRef.current = 1;
+              }}
             />
           ))}
         </View>
@@ -434,7 +472,7 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 12,
   },
-  headerTitle:    { ...typography.h1, color: colors.textPrimary },
+  headerTitle: { ...typography.h1, color: colors.textPrimary },
   headerSubtitle: { ...typography.label, color: colors.textMuted, marginTop: 2 },
 
   // Search
@@ -451,7 +489,7 @@ const styles = StyleSheet.create({
     height: 46,
     gap: 10,
   },
-  searchIcon:  { fontSize: 16 },
+  searchIcon: { fontSize: 16 },
   searchInput: {
     flex: 1,
     ...typography.body,
@@ -501,8 +539,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  errorText:  { ...typography.label, color: colors.error, flex: 1 },
-  retryText:  { ...typography.label, color: colors.roleAdmin, marginLeft: 12 },
+  errorText: { ...typography.label, color: colors.error, flex: 1 },
+  retryText: { ...typography.label, color: colors.roleAdmin, marginLeft: 12 },
 
   // List
   listContent: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 4 },
@@ -528,11 +566,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardAvatarText: { fontSize: 16, fontWeight: '700' },
-  cardInfo:       { flex: 1, minWidth: 0 },
-  cardName:       { ...typography.bodyMedium, color: colors.textPrimary },
-  cardEmail:      { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-  cardPhone:      { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
-  cardBadges:     { alignItems: 'flex-end', gap: 4 },
+  cardInfo: { flex: 1, minWidth: 0 },
+  cardName: { ...typography.bodyMedium, color: colors.textPrimary },
+  cardEmail: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  cardPhone: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
+  cardBadges: { alignItems: 'flex-end', gap: 4 },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -541,7 +579,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: { ...typography.caption, fontWeight: '600' },
-  chevron:   { fontSize: 20, color: colors.textMuted, lineHeight: 24 },
+  chevron: { fontSize: 20, color: colors.textMuted, lineHeight: 24 },
 
   // Skeleton
   skeletonContainer: { paddingHorizontal: 24, paddingTop: 4 },
@@ -557,17 +595,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   skeletonAvatar: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surfaceAlt,
   },
   skeletonLines: { flex: 1 },
-  skeletonLine:  { height: 14, borderRadius: 7, backgroundColor: colors.surfaceAlt },
+  skeletonLine: { height: 14, borderRadius: 7, backgroundColor: colors.surfaceAlt },
 
   // Empty
   emptyContainer: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyEmoji:     { fontSize: 52, marginBottom: 12 },
-  emptyTitle:     { ...typography.h3, color: colors.textPrimary, marginBottom: 8 },
-  emptyText:      { ...typography.body, color: colors.textMuted, textAlign: 'center' },
+  emptyEmoji: { fontSize: 52, marginBottom: 12 },
+  emptyTitle: { ...typography.h3, color: colors.textPrimary, marginBottom: 8 },
+  emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
 
   // Footer Loader
   footerLoader: { paddingVertical: 16, alignItems: 'center' },

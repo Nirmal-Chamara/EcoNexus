@@ -19,12 +19,7 @@ export default function RejectedAccountScreen() {
         Your account verification was not approved. Please contact support if you need more
         information.
       </Text>
-      <Button
-        title="Sign Out"
-        variant="secondary"
-        onPress={signOut}
-        style={styles.signOutButton}
-      />
+      <Button title="Sign Out" variant="secondary" onPress={signOut} style={styles.signOutButton} />
     </ScrollView>
   );
 }

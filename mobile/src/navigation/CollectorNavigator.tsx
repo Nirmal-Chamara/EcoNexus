@@ -9,18 +9,16 @@ import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type CollectorTabParamList = {
-  Dashboard:   undefined;
-  Requests:    undefined;
+  Dashboard: undefined;
+  Requests: undefined;
   ServiceArea: undefined;
-  ProfileTab:  undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<CollectorTabParamList>();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
 export default function CollectorNavigator() {
@@ -36,7 +34,7 @@ export default function CollectorNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.roleCollector,
+        tabBarActiveTintColor: colors.roleCollector,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}

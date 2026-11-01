@@ -1,27 +1,34 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, ScrollView, Image,
-  ActivityIndicator, StyleSheet, Alert,
-} from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { WasteStackParamList } from "../../navigation/WasteNavigator";
-import { createListing, uploadImage } from "../../services/waste.service";
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { WasteStackParamList } from '../../navigation/WasteNavigator';
+import { createListing, uploadImage } from '../../services/waste.service';
 
-type Props = NativeStackScreenProps<WasteStackParamList, "AddListing">;
-type Unit = "kg" | "items";
-type Condition = "clean" | "dirty" | "damaged" | "reusable";
+type Props = NativeStackScreenProps<WasteStackParamList, 'AddListing'>;
+type Unit = 'kg' | 'items';
+type Condition = 'clean' | 'dirty' | 'damaged' | 'reusable';
 
-const CONDITIONS: Condition[] = ["clean", "dirty", "damaged", "reusable"];
+const CONDITIONS: Condition[] = ['clean', 'dirty', 'damaged', 'reusable'];
 
 export default function AddListingScreen({ route, navigation }: Props) {
   const { categoryId, categoryName } = route.params;
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [unit, setUnit] = useState<Unit>("kg");
-  const [condition, setCondition] = useState<Condition>("clean");
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [unit, setUnit] = useState<Unit>('kg');
+  const [condition, setCondition] = useState<Condition>('clean');
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +36,11 @@ export default function AddListingScreen({ route, navigation }: Props) {
   async function pickPhotos() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permission needed", "Allow photo access to add pictures.");
+      Alert.alert('Permission needed', 'Allow photo access to add pictures.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ['images'],
       allowsMultipleSelection: true,
       selectionLimit: 5 - photos.length,
       quality: 0.7, // smaller files upload faster
@@ -46,8 +53,8 @@ export default function AddListingScreen({ route, navigation }: Props) {
   async function submit() {
     setError(null);
     const qty = Number(quantity);
-    if (title.trim().length < 3) return setError("Title must be at least 3 characters.");
-    if (!qty || qty <= 0) return setError("Enter a quantity greater than 0.");
+    if (title.trim().length < 3) return setError('Title must be at least 3 characters.');
+    if (!qty || qty <= 0) return setError('Enter a quantity greater than 0.');
 
     setSaving(true);
     try {
@@ -66,7 +73,7 @@ export default function AddListingScreen({ route, navigation }: Props) {
       });
       navigation.popToTop(); // back to My Listings, which reloads itself
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Could not save the listing. Try again.");
+      setError(e?.response?.data?.message ?? 'Could not save the listing. Try again.');
     } finally {
       setSaving(false);
     }
@@ -77,7 +84,12 @@ export default function AddListingScreen({ route, navigation }: Props) {
       <Text style={styles.category}>Category: {categoryName}</Text>
 
       <Text style={styles.label}>Title</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="e.g. Plastic bottles" />
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="e.g. Plastic bottles"
+      />
 
       <Text style={styles.label}>Description (optional)</Text>
       <TextInput
@@ -97,7 +109,7 @@ export default function AddListingScreen({ route, navigation }: Props) {
           placeholder="0"
           keyboardType="decimal-pad"
         />
-        {(["kg", "items"] as Unit[]).map((u) => (
+        {(['kg', 'items'] as Unit[]).map((u) => (
           <TouchableOpacity
             key={u}
             style={[styles.chip, unit === u && styles.chipActive]}
@@ -138,28 +150,65 @@ export default function AddListingScreen({ route, navigation }: Props) {
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <TouchableOpacity style={[styles.submit, saving && { opacity: 0.6 }]} onPress={submit} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Save listing</Text>}
+      <TouchableOpacity
+        style={[styles.submit, saving && { opacity: 0.6 }]}
+        onPress={submit}
+        disabled={saving}
+      >
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.submitText}>Save listing</Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#faf8f2" },
-  category: { fontSize: 16, fontWeight: "700", color: "#0f1b3d", marginBottom: 8 },
-  label: { marginTop: 14, marginBottom: 6, fontWeight: "600", color: "#0f1b3d" },
-  input: { backgroundColor: "#fff", borderRadius: 10, padding: 12, fontSize: 16, borderWidth: 1, borderColor: "#e3e0d0" },
-  row: { flexDirection: "row", alignItems: "center" },
-  rowWrap: { flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
-  chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#e9e6d8", marginLeft: 8, marginBottom: 8 },
-  chipActive: { backgroundColor: "#eeeacb", borderWidth: 1, borderColor: "#0f1b3d" },
-  chipText: { fontWeight: "600", color: "#0f1b3d" },
+  container: { flex: 1, padding: 16, backgroundColor: '#faf8f2' },
+  category: { fontSize: 16, fontWeight: '700', color: '#0f1b3d', marginBottom: 8 },
+  label: { marginTop: 14, marginBottom: 6, fontWeight: '600', color: '#0f1b3d' },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#e3e0d0',
+  },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  chip: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#e9e6d8',
+    marginLeft: 8,
+    marginBottom: 8,
+  },
+  chipActive: { backgroundColor: '#eeeacb', borderWidth: 1, borderColor: '#0f1b3d' },
+  chipText: { fontWeight: '600', color: '#0f1b3d' },
   thumb: { width: 80, height: 80, borderRadius: 10, marginRight: 8 },
-  remove: { fontSize: 10, color: "#999", textAlign: "center", marginBottom: 8 },
-  addPhoto: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", borderColor: "#0f1b3d", alignItems: "center", justifyContent: "center" },
-  addPhotoText: { fontSize: 12, textAlign: "center", color: "#0f1b3d" },
-  error: { color: "#b00020", marginTop: 14 },
-  submit: { marginTop: 24, backgroundColor: "#0f1b3d", borderRadius: 12, padding: 16, alignItems: "center" },
-  submitText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  remove: { fontSize: 10, color: '#999', textAlign: 'center', marginBottom: 8 },
+  addPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#0f1b3d',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoText: { fontSize: 12, textAlign: 'center', color: '#0f1b3d' },
+  error: { color: '#b00020', marginTop: 14 },
+  submit: {
+    marginTop: 24,
+    backgroundColor: '#0f1b3d',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

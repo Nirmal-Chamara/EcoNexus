@@ -1,4 +1,4 @@
-import { ActivityIndicator, View, Text } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Poppins_500Medium,
@@ -25,7 +25,7 @@ const Stack = createNativeStackNavigator<WasteStackParamList>();
 
 function Placeholder({ label }: { label: string }) {
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={styles.centerContainer}>
       <Text>{label} (coming next)</Text>
     </View>
   );
@@ -56,7 +56,7 @@ export default function WasteNavigator() {
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -93,3 +93,12 @@ export default function WasteNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+

@@ -9,13 +9,13 @@
  */
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import ProfileScreen    from '../screens/shared/ProfileScreen';
+import ProfileScreen from '../screens/shared/ProfileScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import ChangePasswordScreen from '../screens/shared/ChangePasswordScreen';
 
 export type ProfileStackParamList = {
-  Profile:        undefined;
-  EditProfile:    undefined;
+  Profile: undefined;
+  EditProfile: undefined;
   ChangePassword: undefined;
 };
 
@@ -31,9 +31,9 @@ export default function ProfileStackNavigator() {
         contentStyle: { backgroundColor: 'transparent' },
       }}
     >
-      <Stack.Screen name="Profile"         component={ProfileScreen} />
-      <Stack.Screen name="EditProfile"     component={EditProfileScreen} />
-      <Stack.Screen name="ChangePassword"  component={ChangePasswordScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>
   );
 }

@@ -16,9 +16,7 @@ export type UserTabParamList = {
 const Tab = createBottomTabNavigator<UserTabParamList>();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
 export default function UserNavigator() {
@@ -34,7 +32,7 @@ export default function UserNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.primary,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}

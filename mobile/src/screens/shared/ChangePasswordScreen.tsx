@@ -46,17 +46,18 @@ type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 function PasswordStrengthBar({ password }: { password: string }) {
   const score = (() => {
     let s = 0;
-    if (password.length >= 8)          s++;
-    if (/[A-Z]/.test(password))        s++;
-    if (/[0-9]/.test(password))        s++;
+    if (password.length >= 8) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
     if (/[^A-Za-z0-9]/.test(password)) s++;
     return s;
   })();
 
-  const labels   = ['Weak', 'Fair', 'Good', 'Strong'];
+  const labels = ['Weak', 'Fair', 'Good', 'Strong'];
   const labelColors = [colors.error, colors.warning, colors.primaryLight, colors.success];
-  const barColor = password.length === 0 ? colors.border : labelColors[score - 1] ?? colors.border;
-  const label    = password.length === 0 ? '' : labels[score - 1] ?? '';
+  const barColor =
+    password.length === 0 ? colors.border : (labelColors[score - 1] ?? colors.border);
+  const label = password.length === 0 ? '' : (labels[score - 1] ?? '');
 
   return (
     <View style={pwStyles.container}>
@@ -64,10 +65,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
         {[0, 1, 2, 3].map((i) => (
           <View
             key={i}
-            style={[
-              pwStyles.bar,
-              { backgroundColor: i < score ? barColor : colors.surfaceAlt },
-            ]}
+            style={[pwStyles.bar, { backgroundColor: i < score ? barColor : colors.surfaceAlt }]}
           />
         ))}
       </View>
@@ -78,15 +76,15 @@ function PasswordStrengthBar({ password }: { password: string }) {
 
 const pwStyles = StyleSheet.create({
   container: { marginTop: -8, marginBottom: 12, gap: 4 },
-  bars:      { flexDirection: 'row', gap: 4 },
-  bar:       { flex: 1, height: 4, borderRadius: 2 },
-  label:     { ...typography.caption, fontWeight: '600' },
+  bars: { flexDirection: 'row', gap: 4 },
+  bar: { flex: 1, height: 4, borderRadius: 2 },
+  label: { ...typography.caption, fontWeight: '600' },
 });
 
 // ─── ChangePasswordScreen ─────────────────────────────────────────────────────
 export default function ChangePasswordScreen() {
   const { signOut } = useAuth();
-  const navigation  = useNavigation();
+  const navigation = useNavigation();
   const [isSaving, setIsSaving] = useState(false);
 
   const {
@@ -97,8 +95,8 @@ export default function ChangePasswordScreen() {
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
-      oldPassword:     '',
-      newPassword:     '',
+      oldPassword: '',
+      newPassword: '',
       confirmPassword: '',
     },
   });
@@ -238,7 +236,7 @@ export default function ChangePasswordScreen() {
 
         {/* ── Security Tips ──────────────────────── */}
         <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>🛡️  Security Tips</Text>
+          <Text style={styles.tipsTitle}>🛡️ Security Tips</Text>
           {[
             'Use at least 8 characters',
             'Include uppercase & lowercase letters',
@@ -275,21 +273,21 @@ export default function ChangePasswordScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  flex:      { flex: 1 },
-  screen:    { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
+  screen: { flex: 1, backgroundColor: colors.background },
   container: { paddingBottom: 48 },
 
   // Header
   header: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingTop:        52,
-    paddingBottom:     12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 52,
+    paddingBottom: 12,
     paddingHorizontal: 24,
   },
-  backBtn:      { width: 36, alignItems: 'flex-start' },
-  backIcon:     { fontSize: 30, color: colors.textPrimary, lineHeight: 34 },
-  headerTitle:  { ...typography.h2, color: colors.textPrimary, flex: 1, textAlign: 'center' },
+  backBtn: { width: 36, alignItems: 'flex-start' },
+  backIcon: { fontSize: 30, color: colors.textPrimary, lineHeight: 34 },
+  headerTitle: { ...typography.h2, color: colors.textPrimary, flex: 1, textAlign: 'center' },
   headerSpacer: { width: 36 },
 
   // Icon section
@@ -309,44 +307,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  icon:         { fontSize: 32 },
-  iconSubtitle: { ...typography.label, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  icon: { fontSize: 32 },
+  iconSubtitle: {
+    ...typography.label,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 
   // Form
   formCard: {
     marginHorizontal: 24,
-    backgroundColor:  colors.surface,
-    borderRadius:     16,
-    borderWidth:      1,
-    borderColor:      colors.border,
-    padding:          20,
-    marginBottom:     20,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    marginBottom: 20,
   },
   formSection: {
     ...typography.label,
-    color:         colors.textMuted,
+    color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.7,
-    marginBottom:  16,
+    marginBottom: 16,
   },
 
   // Tips
   tipsCard: {
     marginHorizontal: 24,
-    backgroundColor:  colors.successSurface,
-    borderRadius:     14,
-    borderWidth:      1,
-    borderColor:      colors.border,
-    padding:          16,
-    marginBottom:     24,
+    backgroundColor: colors.successSurface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    marginBottom: 24,
     gap: 6,
   },
   tipsTitle: { ...typography.bodyMedium, color: colors.primaryLight, marginBottom: 6 },
-  tipRow:    { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
-  tipDot:    { color: colors.primary, fontSize: 16, lineHeight: 20 },
-  tipText:   { ...typography.caption, color: colors.textSecondary, flex: 1, lineHeight: 18 },
+  tipRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-start' },
+  tipDot: { color: colors.primary, fontSize: 16, lineHeight: 20 },
+  tipText: { ...typography.caption, color: colors.textSecondary, flex: 1, lineHeight: 18 },
 
   // Actions
-  actions:   { paddingHorizontal: 24, gap: 8 },
+  actions: { paddingHorizontal: 24, gap: 8 },
   cancelBtn: { marginTop: 0 },
 });

@@ -9,19 +9,17 @@ import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type AdminTabParamList = {
-  Dashboard:     undefined;
-  Users:         undefined;
+  Dashboard: undefined;
+  Users: undefined;
   Verifications: undefined;
-  Reports:       undefined;
-  ProfileTab:    undefined;
+  Reports: undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
 export default function AdminNavigator() {
@@ -37,7 +35,7 @@ export default function AdminNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.roleAdmin,
+        tabBarActiveTintColor: colors.roleAdmin,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}

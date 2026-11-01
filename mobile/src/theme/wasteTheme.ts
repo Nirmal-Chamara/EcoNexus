@@ -24,6 +24,7 @@ export const colors = {
   dangerSoft: base.errorSurface,
   border: base.border,
   white: base.white,
+  overlay: 'rgba(19, 27, 46, 0.65)',
 };
 
 export const fonts = fontFamily;

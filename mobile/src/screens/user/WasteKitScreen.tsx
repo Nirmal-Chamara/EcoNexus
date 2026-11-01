@@ -1,4 +1,4 @@
-import { ScrollView, View, Alert } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import AppText from '../../components/waste/AppText';
 import Button from '../../components/waste/Button';
 import Chip from '../../components/waste/Chip';
@@ -10,10 +10,7 @@ import { colors } from '../../theme/wasteTheme';
 export default function WasteKitScreen() {
   const tap = () => Alert.alert('Tapped');
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 16, gap: 16 }}
-    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <AppText variant="label">Waste registration</AppText>
       <AppText variant="title">Waste Details</AppText>
       <AppText variant="muted">
@@ -26,14 +23,14 @@ export default function WasteKitScreen() {
         <AppText variant="caption">0.5 kg to 50+ kg</AppText>
       </Card>
 
-      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+      <View style={styles.rowWrap}>
         <Chip label="All" count={22} onPress={tap} />
         <Chip label="Active" count={3} selected onPress={tap} />
         <Chip label="Scheduled" count={1} onPress={tap} />
         <Chip label="History" onPress={tap} />
       </View>
 
-      <View style={{ gap: 8 }}>
+      <View style={styles.badgeList}>
         {['draft', 'active', 'requested', 'scheduled', 'collected', 'cancelled'].map((s) => (
           <StatusBadge key={s} status={s} />
         ))}
@@ -56,3 +53,22 @@ export default function WasteKitScreen() {
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: 16,
+    gap: 16,
+  },
+  rowWrap: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  badgeList: {
+    gap: 8,
+  },
+});

@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -14,14 +8,14 @@ import { typography } from '../../theme/typography';
  * Shows a branded animated splash while session is being restored from secure storage.
  */
 export default function SplashScreen() {
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const spinAnim  = useRef(new Animated.Value(0)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Entry animation
     Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
     ]).start();
 
@@ -68,7 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoContainer: { alignItems: 'center', marginBottom: 60 },
-  logoEmoji:     { fontSize: 72, marginBottom: 12 },
+  logoEmoji: { fontSize: 72, marginBottom: 12 },
   appName: {
     ...typography.displayMedium,
     color: colors.primary,

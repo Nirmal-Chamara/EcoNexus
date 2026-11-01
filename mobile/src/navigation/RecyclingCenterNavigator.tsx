@@ -9,18 +9,16 @@ import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type RecyclingCenterTabParamList = {
-  Dashboard:         undefined;
+  Dashboard: undefined;
   IncomingMaterials: undefined;
-  Processing:        undefined;
-  ProfileTab:        undefined;
+  Processing: undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<RecyclingCenterTabParamList>();
 
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
+  return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
 export default function RecyclingCenterNavigator() {
@@ -36,7 +34,7 @@ export default function RecyclingCenterNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.roleCenter,
+        tabBarActiveTintColor: colors.roleCenter,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}

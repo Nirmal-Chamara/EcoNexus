@@ -50,9 +50,7 @@ export function Button({
           size="small"
         />
       ) : (
-        <Text style={[styles.text, styles[`${variant}Text`] as TextStyle]}>
-          {title}
-        </Text>
+        <Text style={[styles.text, styles[`${variant}Text`] as TextStyle]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -67,18 +65,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   fullWidth: { width: '100%' },
-  disabled:  { opacity: 0.5 },
+  disabled: { opacity: 0.5 },
 
   // Variants
-  primary:   { backgroundColor: colors.primary },
+  primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
-  ghost:     { backgroundColor: colors.transparent },
-  danger:    { backgroundColor: colors.error },
+  ghost: { backgroundColor: colors.transparent },
+  danger: { backgroundColor: colors.error },
 
   // Text
-  text:          { ...typography.button },
-  primaryText:   { color: colors.textInverse },
+  text: { ...typography.button },
+  primaryText: { color: colors.textInverse },
   secondaryText: { color: colors.textPrimary },
-  ghostText:     { color: colors.primary },
-  dangerText:    { color: colors.white },
+  ghostText: { color: colors.primary },
+  dangerText: { color: colors.white },
 });
