@@ -1,46 +1,48 @@
-// EcoNexus Design System — Color Palette
-// Built around an eco/green identity with dark backgrounds for premium feel
+// EcoNexus Design System: colour palette (light theme, from the module designs)
 
 export const colors = {
   // ── Brand ─────────────────────────────────────
-  primary:        '#22C55E', // Main green action color
-  primaryDark:    '#16A34A', // Pressed / deep green
-  primaryLight:   '#86EFAC', // Soft accent
-  primaryMuted:   '#BBF7D0', // Subtle tint
+  primary: '#006C49', // Main green action colour
+  primaryDark: '#074F3C', // Pressed / deep green
+  primaryLight: '#7FD9AD', // Soft accent
+  primaryMuted: '#E8F8F0', // Subtle tint (mint)
+  lime: '#ACF847', // Highlight buttons ("+ New Waste", Publish)
 
   // ── Backgrounds ───────────────────────────────
-  background:     '#0A0F0D', // Near-black canvas
-  surface:        '#111A14', // Card / elevated surface
-  surfaceAlt:     '#182419', // Input fields, alternative surface
-  border:         '#1F3022', // Subtle dividers & input borders
-  borderFocus:    '#22C55E', // Focused input border
+  background: '#FAF8FF', // Page background
+  surface: '#FFFFFF', // Cards
+  surfaceAlt: '#F0F1FF', // Input fields, alternative surface
+  lavender: '#E2E7FF', // Tabs / chips (inactive)
+  border: '#E3E5F0', // Dividers & input borders
+  borderFocus: '#006C49', // Focused input border
 
   // ── Text ──────────────────────────────────────
-  textPrimary:    '#F0FDF4', // Near-white headings
-  textSecondary:  '#A7F3D0', // Soft muted descriptors
-  textMuted:      '#6B7280', // Placeholder, helper text
-  textInverse:    '#0A0F0D', // Text on primary button
+  textPrimary: '#131B2E', // Headings
+  textSecondary: '#5F6B7A', // Descriptions
+  textMuted: '#8A93A3', // Placeholder, helper text
+  textInverse: '#FFFFFF', // Text on primary button
 
   // ── Status ────────────────────────────────────
-  error:          '#EF4444',
-  errorSurface:   '#1C0707',
-  warning:        '#F59E0B',
-  warningSurface: '#1C1107',
-  success:        '#22C55E',
-  successSurface: '#071C0D',
-  info:           '#3B82F6',
+  error: '#BA1A1A',
+  errorSurface: '#FBE4E4',
+  warning: '#F59E0B',
+  warningText: '#B26A00',
+  warningSurface: '#FDE8AF',
+  success: '#006C49',
+  successSurface: '#E8F8F0',
+  info: '#3B82F6',
 
   // ── Role Badges ───────────────────────────────
-  roleUser:       '#22C55E',
-  roleCollector:  '#F59E0B',
-  roleCenter:     '#3B82F6',
-  roleAdmin:      '#A855F7',
+  roleUser: '#006C49',
+  roleCollector: '#F59E0B',
+  roleCenter: '#3B82F6',
+  roleAdmin: '#A855F7',
 
   // ── Utility ───────────────────────────────────
-  white:          '#FFFFFF',
-  black:          '#000000',
-  transparent:    'transparent',
-  overlay:        'rgba(0,0,0,0.6)',
+  white: '#FFFFFF',
+  black: '#000000',
+  transparent: 'transparent',
+  overlay: 'rgba(19,27,46,0.5)',
 };
 
 export type ColorKey = keyof typeof colors;

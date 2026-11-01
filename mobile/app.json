@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0A0F0D"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.econexus.app"
@@ -38,7 +40,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#22C55E"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
