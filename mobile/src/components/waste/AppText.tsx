@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/consistent-type-imports */
 import { Text, TextProps, StyleSheet } from 'react-native';
 import { colors, fonts } from '../../theme/wasteTheme';
 

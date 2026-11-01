@@ -1,17 +1,19 @@
-import { ScrollView, View, Alert } from "react-native";
-import AppText from "../../components/waste/AppText";
-import Button from "../../components/waste/Button";
-import Chip from "../../components/waste/Chip";
-import Card from "../../components/waste/Card";
-import StatusBadge from "../../components/waste/StatusBadge";
-import { colors } from "../../theme/wasteTheme";
+import { ScrollView, View, Alert } from 'react-native';
+import AppText from '../../components/waste/AppText';
+import Button from '../../components/waste/Button';
+import Chip from '../../components/waste/Chip';
+import Card from '../../components/waste/Card';
+import StatusBadge from '../../components/waste/StatusBadge';
+import { colors } from '../../theme/wasteTheme';
 
 // Developer preview of the waste module's building blocks.
 export default function WasteKitScreen() {
-  const tap = () => Alert.alert("Tapped");
+  const tap = () => Alert.alert('Tapped');
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ padding: 16, gap: 16 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: 16, gap: 16 }}
+    >
       <AppText variant="label">Waste registration</AppText>
       <AppText variant="title">Waste Details</AppText>
       <AppText variant="muted">
@@ -24,7 +26,7 @@ export default function WasteKitScreen() {
         <AppText variant="caption">0.5 kg to 50+ kg</AppText>
       </Card>
 
-      <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
         <Chip label="All" count={22} onPress={tap} />
         <Chip label="Active" count={3} selected onPress={tap} />
         <Chip label="Scheduled" count={1} onPress={tap} />
@@ -32,7 +34,7 @@ export default function WasteKitScreen() {
       </View>
 
       <View style={{ gap: 8 }}>
-        {["draft", "active", "requested", "scheduled", "collected", "cancelled"].map((s) => (
+        {['draft', 'active', 'requested', 'scheduled', 'collected', 'cancelled'].map((s) => (
           <StatusBadge key={s} status={s} />
         ))}
       </View>

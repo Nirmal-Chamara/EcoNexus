@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, StyleProp, View, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import AppText from './AppText';
 import { colors, radii } from '../../theme/wasteTheme';
 

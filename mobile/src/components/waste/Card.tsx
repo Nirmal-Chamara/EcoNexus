@@ -1,4 +1,5 @@
-import { StyleSheet, StyleProp, View, ViewProps, ViewStyle } from 'react-native';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colors, radii, shadows } from '../../theme/wasteTheme';
 
 interface Props extends ViewProps {

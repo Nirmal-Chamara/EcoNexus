@@ -15,7 +15,7 @@ module.exports = {
   },
   rules: {
     // ── Prettier integration ──────────────────────────────────────
-    'prettier/prettier': 'error',
+    'prettier/prettier': ['error', { endOfLine: 'auto' }],
 
     // ── TypeScript ────────────────────────────────────────────────
     '@typescript-eslint/no-explicit-any': 'error',

@@ -6,7 +6,8 @@ import {
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
-import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import MyListingsScreen from '../screens/user/MyListingsScreen';
 import WasteCategoryScreen from '../screens/user/WasteCategoryScreen';
 import WasteKitScreen from '../screens/user/WasteKitScreen';
