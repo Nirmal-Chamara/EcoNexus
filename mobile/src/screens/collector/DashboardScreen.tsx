@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { collectorService } from '../../services/collector.service';
@@ -18,6 +19,7 @@ import { CollectorProfile, PickupRequest } from '../../types/collector';
 import * as Location from 'expo-location';
 
 export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [profile, setProfile] = useState<CollectorProfile | null>(null);
   const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([]);

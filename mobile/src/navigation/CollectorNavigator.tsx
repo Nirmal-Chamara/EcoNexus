@@ -3,16 +3,18 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import DashboardScreen from '../screens/collector/DashboardScreen';
-import RequestsScreen from '../screens/collector/RequestsScreen';
+import { RequestsStackNavigator } from './CollectorStackNavigator';
+import CollectionHistoryScreen from '../screens/collector/CollectionHistoryScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type CollectorTabParamList = {
-  Dashboard:   undefined;
-  Requests:    undefined;
+  Dashboard: undefined;
+  RequestsTab: undefined;
+  HistoryTab: undefined;
   ServiceArea: undefined;
-  ProfileTab:  undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<CollectorTabParamList>();
@@ -36,7 +38,7 @@ export default function CollectorNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.roleCollector,
+        tabBarActiveTintColor: colors.roleCollector,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}
@@ -50,11 +52,19 @@ export default function CollectorNavigator() {
         }}
       />
       <Tab.Screen
-        name="Requests"
-        component={RequestsScreen}
+        name="RequestsTab"
+        component={RequestsStackNavigator}
         options={{
           tabBarLabel: 'Requests',
           tabBarIcon: ({ focused }) => <TabIcon emoji="📋" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="HistoryTab"
+        component={CollectionHistoryScreen}
+        options={{
+          tabBarLabel: 'History',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="🕒" focused={focused} />,
         }}
       />
       <Tab.Screen

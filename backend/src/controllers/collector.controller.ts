@@ -88,4 +88,25 @@ export class CollectorController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/collector/stats
+   * Collector views summary metrics
+   */
+  static async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+      }
+
+      const stats = await CollectorService.getStats(req.user.id);
+
+      res.status(200).json({
+        message: 'Collector stats retrieved successfully',
+        data: stats,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

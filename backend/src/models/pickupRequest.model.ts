@@ -1,4 +1,5 @@
 import { db } from '../config/db';
+import { AppError } from '../utils/AppError';
 
 export interface CreatePickupDto {
   userId: string;
@@ -38,7 +39,23 @@ export class PickupRequestModel {
       data.images || null,
       data.scheduledTime || null,
     ]);
-    return result.rows[0];
+
+    const created = result.rows[0];
+
+    // Log initial timeline event if pickup_request_events exists
+    try {
+      await db.query(
+        `
+        INSERT INTO pickup_request_events (request_id, status, note, created_at)
+        VALUES ($1, 'PENDING', 'Pickup request placed by citizen', now())
+        `,
+        [created.id]
+      );
+    } catch {
+      // Non-blocking if table is not yet migrated
+    }
+
+    return created;
   }
 
   static async findById(id: string) {
@@ -104,7 +121,7 @@ export class PickupRequestModel {
       );
 
       if (reqUpdate.rows.length === 0) {
-        throw new Error('Request is no longer pending or does not exist');
+        throw new AppError(409, 'Request is no longer pending or does not exist', 'CONFLICT');
       }
 
       // Create allocation record
@@ -116,6 +133,19 @@ export class PickupRequestModel {
         `,
         [requestId, collectorId]
       );
+
+      // Record timeline progress event
+      try {
+        await client.query(
+          `
+          INSERT INTO pickup_request_events (request_id, status, note, created_at)
+          VALUES ($1, 'ACCEPTED', 'Collector accepted pickup order', now())
+          `,
+          [requestId]
+        );
+      } catch {
+        // Non-blocking
+      }
 
       await client.query('COMMIT');
       return allocResult.rows[0];
@@ -143,7 +173,7 @@ export class PickupRequestModel {
       );
 
       if (reqResult.rows.length === 0) {
-        throw new Error('Pickup request not found');
+        throw new AppError(404, 'Pickup request not found', 'NOT_FOUND');
       }
 
       // Sync status with pickup_allocations
@@ -156,6 +186,37 @@ export class PickupRequestModel {
         `,
         [requestId, status]
       );
+
+      // If completed, update collector completed trip counter
+      if (status === 'COMPLETED') {
+        try {
+          await client.query(
+            `
+            UPDATE collector_profiles
+            SET completed_pickups = completed_pickups + 1, updated_at = now()
+            WHERE user_id = (
+              SELECT collector_id FROM pickup_allocations WHERE pickup_request_id = $1 LIMIT 1
+            );
+            `,
+            [requestId]
+          );
+        } catch {
+          // Non-blocking
+        }
+      }
+
+      // Record timeline progress event
+      try {
+        await client.query(
+          `
+          INSERT INTO pickup_request_events (request_id, status, note, created_at)
+          VALUES ($1, $2, $3, now())
+          `,
+          [requestId, status, `Status transitioned to ${status}`]
+        );
+      } catch {
+        // Non-blocking
+      }
 
       await client.query('COMMIT');
       return reqResult.rows[0];
@@ -178,5 +239,20 @@ export class PickupRequestModel {
     `;
     const result = await db.query(query, [requestId]);
     return result.rows[0] || null;
+  }
+
+  static async getEvents(requestId: string) {
+    try {
+      const query = `
+        SELECT id, request_id, status, note, created_at
+        FROM pickup_request_events
+        WHERE request_id = $1
+        ORDER BY created_at ASC;
+      `;
+      const result = await db.query(query, [requestId]);
+      return result.rows;
+    } catch {
+      return [];
+    }
   }
 }

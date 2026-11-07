@@ -44,10 +44,14 @@ export class PickupService {
     if (!pickup) {
       throw new AppError(404, 'Pickup request not found', 'NOT_FOUND');
     }
-    const allocation = await PickupRequestModel.getAllocation(id);
+    const [allocation, events] = await Promise.all([
+      PickupRequestModel.getAllocation(id),
+      PickupRequestModel.getEvents(id),
+    ]);
     return {
       ...pickup,
       allocation: allocation || null,
+      events: events || [],
     };
   }
 

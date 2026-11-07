@@ -93,4 +93,18 @@ export class CollectorModel {
     const result = await db.query(query, [collectorId]);
     return result.rows;
   }
+
+  static async getStats(collectorId: string) {
+    const query = `
+      SELECT 
+        COUNT(CASE WHEN p.status = 'COMPLETED' THEN 1 END)::int AS completed_count,
+        COALESCE(SUM(CASE WHEN p.status = 'COMPLETED' THEN p.estimated_weight ELSE 0 END), 0)::numeric(10,2) AS total_weight_kg,
+        COUNT(CASE WHEN p.status = 'ACCEPTED' OR p.status = 'IN_TRANSIT' THEN 1 END)::int AS active_count
+      FROM pickup_allocations a
+      JOIN pickup_requests p ON a.pickup_request_id = p.id
+      WHERE a.collector_id = $1;
+    `;
+    const result = await db.query(query, [collectorId]);
+    return result.rows[0] || { completed_count: 0, total_weight_kg: 0, active_count: 0 };
+  }
 }

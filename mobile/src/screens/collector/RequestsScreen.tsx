@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { pickupService } from '../../services/pickup.service';
 import { collectorService } from '../../services/collector.service';
@@ -16,6 +17,7 @@ import { PickupRequest } from '../../types/collector';
 import * as Location from 'expo-location';
 
 export default function RequestsScreen() {
+  const navigation = useNavigation<any>();
   const [tab, setTab] = useState<'NEARBY' | 'ASSIGNED'>('NEARBY');
   const [nearbyRequests, setNearbyRequests] = useState<PickupRequest[]>([]);
   const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([]);
@@ -143,7 +145,11 @@ export default function RequestsScreen() {
 
   const renderAssignedItem = ({ item }: { item: PickupRequest }) => {
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('RequestDetails', { pickupId: item.id })}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.typeBadge}>
             <Text style={styles.typeText}>{item.waste_type}</Text>
@@ -185,7 +191,13 @@ export default function RequestsScreen() {
             Assigned: {new Date(item.assigned_at || item.created_at).toLocaleDateString()}
           </Text>
         </View>
-      </View>
+
+        <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.05)', paddingTop: 8 }}>
+          <Text style={{ color: colors.roleCollector, fontSize: 12, fontWeight: '600' }}>
+            Tap to view map, navigation & actions →
+          </Text>
+        </View>
+      </TouchableOpacity>
     );
   };
 

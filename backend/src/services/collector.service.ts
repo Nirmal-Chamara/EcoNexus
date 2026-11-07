@@ -51,4 +51,11 @@ export class CollectorService {
   static async getAssignedPickups(collectorId: string) {
     return await CollectorModel.getAssignedPickups(collectorId);
   }
+
+  /**
+   * Get collector summary performance stats
+   */
+  static async getStats(collectorId: string) {
+    return await CollectorModel.getStats(collectorId);
+  }
 }

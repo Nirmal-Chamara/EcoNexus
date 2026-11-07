@@ -43,4 +43,12 @@ router.get(
   CollectorController.getAssignedPickups
 );
 
+// 5. Fetch collector metrics & summary stats
+router.get(
+  '/stats',
+  authenticate,
+  authorize('COLLECTOR', 'ADMIN'),
+  CollectorController.getStats
+);
+
 export default router;
