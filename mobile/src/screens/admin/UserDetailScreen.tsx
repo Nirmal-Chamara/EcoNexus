@@ -12,7 +12,7 @@
  *  • Back button with slide animation
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -29,7 +29,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { adminService } from '../../services/admin.service';
-import type { AdminUser } from '../../services/admin.service';
+import type { AdminUserDetail } from '../../services/admin.service';
 import type { AdminUsersStackParamList } from '../../navigation/AdminStackNavigator';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -124,6 +124,13 @@ function formatDate(iso: string): string {
   }
 }
 
+function getActivityLabel(action: string): string {
+  return action
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 // ─── InfoRow ─────────────────────────────────────────────────────────────────
 
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
@@ -198,11 +205,37 @@ export default function UserDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RoutePropType>();
 
-  const [user, setUser] = useState<AdminUser>(route.params.user);
+  const [user, setUser] = useState<AdminUserDetail>(() => ({
+    ...route.params.user,
+    updated_at: route.params.user.created_at,
+    activity: [],
+  }));
   const [loadingAction, setLoadingAction] = useState<AccountStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [suspensionModalVisible, setSuspensionModalVisible] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    setLoadingProfile(true);
+    adminService
+      .getUser(route.params.user.id)
+      .then((response) => {
+        if (active) setUser(response.data);
+      })
+      .catch((error: unknown) => {
+        if (active) setError(mapApiError(error, 'Could not load the latest user details.'));
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [route.params.user.id]);
 
   // ── Status Change ──────────────────────────────────────────────────────────
   const changeStatus = useCallback(
@@ -308,6 +341,37 @@ export default function UserDetailScreen() {
         </View>
 
         {/* ── Error Banner ─────────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Activity Summary</Text>
+          {loadingProfile ? (
+            <View style={styles.activityLoading}>
+              <ActivityIndicator color={colors.roleAdmin} size="small" />
+              <Text style={styles.sectionHint}>Loading recent activity...</Text>
+            </View>
+          ) : user.activity.length === 0 ? (
+            <View style={styles.activityEmpty}>
+              <Text style={styles.activityEmptyText}>No admin activity recorded yet.</Text>
+            </View>
+          ) : (
+            <View style={styles.activityCard}>
+              {user.activity.slice(0, 5).map((activity, index) => (
+                <React.Fragment key={activity.id}>
+                  {index > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.activityRow}>
+                    <View style={styles.activityDot} />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityAction}>{getActivityLabel(activity.action)}</Text>
+                      <Text style={styles.activityMeta}>
+                        {activity.actor_name} - {formatDate(activity.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+          )}
+        </View>
+
         {error ? (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -531,6 +595,43 @@ const styles = StyleSheet.create({
   infoLabel: { ...typography.caption, color: colors.textMuted, marginBottom: 2 },
   infoValue: { ...typography.bodyMedium, color: colors.textPrimary },
   divider: { height: 1, backgroundColor: colors.border, marginLeft: 52 },
+  activityCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  activityLoading: {
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  activityEmpty: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+  },
+  activityEmptyText: { ...typography.body, color: colors.textMuted },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.roleAdmin,
+  },
+  activityContent: { flex: 1 },
+  activityAction: { ...typography.bodyMedium, color: colors.textPrimary },
+  activityMeta: { ...typography.caption, color: colors.textMuted, marginTop: 3 },
 
   // Error
   errorBanner: {

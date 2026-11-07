@@ -1,4 +1,3 @@
-// CollectorNavigator.tsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,6 +11,12 @@ import { RequestsStackNavigator } from './CollectorStackNavigator';
 import CollectionHistoryScreen from '../screens/collector/CollectionHistoryScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
+import { colors } from '../theme/colors';
+import { roleTabScreenOptions, TabIcon } from './tabBar';
+
+export type CollectorTabParamList = {
+  Dashboard: undefined;
+  Requests: undefined;
 
 export type CollectorHomeStackParamList = {
   DashboardHome: undefined;
@@ -52,6 +57,9 @@ export type CollectorTabParamList = {
 
 const Tab = createBottomTabNavigator<CollectorTabParamList>();
 
+export default function CollectorNavigator() {
+  return (
+    <Tab.Navigator screenOptions={roleTabScreenOptions(colors.roleCollector)}>
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
     <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.4 }}>{emoji}</Text>
@@ -86,6 +94,10 @@ export default function CollectorNavigator() {
         name="Dashboard"
         component={CollectorHomeStackNavigator}
         options={{
+          tabBarLabel: 'Dashboard',
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="home-outline" focused={focused} color={color} size={size} />
+          ),
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
         }}
@@ -102,6 +114,10 @@ export default function CollectorNavigator() {
         name="HistoryTab"
         component={CollectionHistoryScreen}
         options={{
+          tabBarLabel: 'Requests',
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="clipboard-outline" focused={focused} color={color} size={size} />
+          ),
           tabBarLabel: 'History',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🕒" focused={focused} />,
         }}
@@ -110,6 +126,10 @@ export default function CollectorNavigator() {
         name="ServiceArea"
         component={ServiceAreaScreen}
         options={{
+          tabBarLabel: 'Area',
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="map-outline" focused={focused} color={color} size={size} />
+          ),
           tabBarLabel: 'Map',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
         }}
@@ -118,6 +138,10 @@ export default function CollectorNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="person-outline" focused={focused} color={color} size={size} />
+          ),
           tabBarLabel: 'Hub',
           tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
         }}

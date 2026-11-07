@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  TouchableOpacityProps,
-} from 'react-native';
+import type { TouchableOpacityProps } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -33,26 +26,24 @@ export function Button({
 
   return (
     <TouchableOpacity
+      {...rest}
       style={[
         styles.base,
-        styles[variant],
+        variantStyles[variant],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
-        style as ViewStyle,
+        style,
       ]}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={rest.accessibilityLabel ?? title}
+      accessibilityState={{ ...rest.accessibilityState, disabled: !!isDisabled, busy: loading }}
       activeOpacity={0.8}
-      {...rest}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === 'primary' ? colors.textInverse : colors.primary}
-          size="small"
-        />
+        <ActivityIndicator color={variantTextStyles[variant].color} size="small" />
       ) : (
-        <Text style={[styles.text, styles[`${variant}Text`] as TextStyle]}>
-          {title}
-        </Text>
+        <Text style={[styles.text, variantTextStyles[variant]]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -60,25 +51,40 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 52,
+    minWidth: 44,
+    minHeight: 52,
+    paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   fullWidth: { width: '100%' },
-  disabled:  { opacity: 0.5 },
+  disabled: { opacity: 0.5 },
 
   // Variants
-  primary:   { backgroundColor: colors.primary },
+  primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
-  ghost:     { backgroundColor: colors.transparent },
-  danger:    { backgroundColor: colors.error },
+  ghost: { backgroundColor: colors.transparent },
+  danger: { backgroundColor: colors.error },
 
   // Text
-  text:          { ...typography.button },
-  primaryText:   { color: colors.textInverse },
+  text: { ...typography.button, textAlign: 'center', flexShrink: 1 },
+  primaryText: { color: colors.textInverse },
   secondaryText: { color: colors.textPrimary },
-  ghostText:     { color: colors.primary },
-  dangerText:    { color: colors.white },
+  ghostText: { color: colors.primary },
+  dangerText: { color: colors.textInverse },
 });
+
+const variantStyles = {
+  primary: styles.primary,
+  secondary: styles.secondary,
+  ghost: styles.ghost,
+  danger: styles.danger,
+};
+const variantTextStyles = {
+  primary: styles.primaryText,
+  secondary: styles.secondaryText,
+  ghost: styles.ghostText,
+  danger: styles.dangerText,
+};

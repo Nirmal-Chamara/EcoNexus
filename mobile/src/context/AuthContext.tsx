@@ -9,8 +9,9 @@ import React, {
 import axios from 'axios';
 import type { AuthUser, LoginInput, RegisterInput } from '../types/user';
 import { authService } from '../services/auth.service';
-import { tokenStorage } from '../services/tokenStorage';
-import { registerForceLogoutHandler } from '../services/api';
+import { tokenStorage, subscribeAccessToken } from '../services/tokenStorage';
+import { registerForceLogoutHandler, logoutReasonForError } from '../services/api';
+import type { ForceLogoutReason } from '../types/session';
 import { userService } from '../services/user.service';
 import { authenticateBiometric, canUseBiometrics } from '../services/biometric';
 
@@ -18,29 +19,48 @@ import { authenticateBiometric, canUseBiometrics } from '../services/biometric';
 // State & Action Types
 // ─────────────────────────────────────────────
 
-type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
+export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
+export type { ForceLogoutReason } from '../types/session';
 
 interface AuthState {
   status: AuthStatus;
   user: AuthUser | null;
+  accessToken: string | null;
+  logoutReason: ForceLogoutReason | null;
 }
 
 type AuthAction =
+  | { type: 'DISMISS_REASON' }
   | { type: 'RESTORE_SESSION'; user: AuthUser }
   | { type: 'SIGN_IN'; user: AuthUser }
-  | { type: 'SIGN_OUT' }
+  | { type: 'SIGN_OUT'; reason?: ForceLogoutReason }
+  | { type: 'TOKEN_CHANGED'; accessToken: string | null }
+  | { type: 'UPDATE_USER'; user: Partial<AuthUser> }
   | { type: 'LOADING_DONE_NO_SESSION' };
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
+    case 'DISMISS_REASON':
+      return { ...state, logoutReason: null };
     case 'RESTORE_SESSION':
-      return { status: 'signedIn', user: action.user };
+      return { ...state, status: 'signedIn', user: action.user, logoutReason: null };
     case 'SIGN_IN':
-      return { status: 'signedIn', user: action.user };
+      return { ...state, status: 'signedIn', user: action.user, logoutReason: null };
     case 'SIGN_OUT':
-      return { status: 'signedOut', user: null };
+      return {
+        status: 'signedOut',
+        user: null,
+        accessToken: null,
+        logoutReason: action.reason ?? null,
+      };
     case 'LOADING_DONE_NO_SESSION':
-      return { status: 'signedOut', user: null };
+      return { ...state, status: 'signedOut', user: null, accessToken: null };
+    case 'TOKEN_CHANGED':
+      return { ...state, accessToken: action.accessToken };
+    case 'UPDATE_USER':
+      return state.status === 'signedIn' && state.user
+        ? { ...state, user: { ...state.user, ...action.user } }
+        : state;
     default:
       return state;
   }
@@ -50,7 +70,14 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 // Context Shape
 // ─────────────────────────────────────────────
 
-interface AuthContextValue {
+export interface AuthContextValue {
+  dismissLogoutReason: () => void;
+  accessToken: string | null;
+  logoutReason: ForceLogoutReason | null;
+  login: (input: LoginInput, keepSignedIn?: boolean) => Promise<void>;
+  register: (input: RegisterInput, keepSignedIn?: boolean) => Promise<void>;
+  logout: () => Promise<void>;
+  forceLogout: (reason: ForceLogoutReason) => Promise<void>;
   /** Current auth state: 'loading' | 'signedOut' | 'signedIn' */
   status: AuthStatus;
   /** Authenticated user profile, or null when signed out */
@@ -88,10 +115,32 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const [splashReady, setSplashReady] = React.useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSplashReady(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
   const [state, dispatch] = useReducer(authReducer, {
     status: 'loading',
     user: null,
+    accessToken: null,
+    logoutReason: null,
   });
+
+  const sessionVersion = useRef(0);
+  useEffect(
+    () =>
+      subscribeAccessToken((accessToken) => {
+        dispatch({ type: 'TOKEN_CHANGED', accessToken });
+      }),
+    []
+  );
+
+  const forceLogout = useCallback(async (reason: ForceLogoutReason): Promise<void> => {
+    sessionVersion.current += 1;
+    dispatch({ type: 'SIGN_OUT', reason });
+    await tokenStorage.clearTokens();
+  }, []);
 
   // Stable ref for user to avoid stale closure in updateUser
   const userRef = useRef<AuthUser | null>(null);
@@ -101,16 +150,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ─── Session Restoration on App Boot ───────
   useEffect(() => {
+    const version = sessionVersion.current;
+    let active = true;
     async function restoreSession(): Promise<void> {
       try {
-        const refreshToken = await tokenStorage.getRefreshToken();
-
-        // Memory-only sessions intentionally end when the app process exits.
-        if (!refreshToken) {
-          dispatch({ type: 'LOADING_DONE_NO_SESSION' });
-          return;
-        }
-
         if (await tokenStorage.getBiometricEnabled()) {
           if (await canUseBiometrics()) {
             const unlocked = await authenticateBiometric('Unlock your EcoNexus session');
@@ -120,56 +163,84 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           } else {
             await tokenStorage.setBiometricEnabled(false);
+            dispatch({ type: 'LOADING_DONE_NO_SESSION' });
+            return;
           }
         }
 
+        if (!active || version !== sessionVersion.current) return;
+
+        // Memory-only sessions intentionally end when the app process exits.
+        const refreshToken = await tokenStorage.getRefreshToken();
+        if (!refreshToken) {
+          dispatch({ type: 'LOADING_DONE_NO_SESSION' });
+          return;
+        }
+
         const tokens = await authService.refresh(refreshToken);
+        if (!active || version !== sessionVersion.current) return;
         await tokenStorage.saveTokens(
           tokens.accessToken,
           tokens.refreshToken,
           await tokenStorage.getKeepSignedIn()
         );
         const user = await userService.getMe();
-        dispatch({ type: 'RESTORE_SESSION', user });
+        if (active && version === sessionVersion.current)
+          dispatch({ type: 'RESTORE_SESSION', user });
       } catch (error: unknown) {
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
-          await tokenStorage.clearTokens();
-        }
-        dispatch({ type: 'LOADING_DONE_NO_SESSION' });
+        if (!active || version !== sessionVersion.current) return;
+        const isTemporaryNetworkFailure = axios.isAxiosError(error) && !error.response;
+        if (!isTemporaryNetworkFailure) await tokenStorage.clearTokens().catch(() => {});
+        dispatch({
+          type: 'SIGN_OUT',
+          reason:
+            axios.isAxiosError(error) &&
+            (error.response?.status === 401 || error.response?.status === 403)
+              ? logoutReasonForError(error)
+              : undefined,
+        });
       }
     }
 
-    restoreSession();
+    void restoreSession().catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
   // ─── Register Global Force-Logout Handler ──
   // The axios interceptor calls this when a 401 cannot be recovered
   // (e.g. refresh token is expired or revoked by the server).
   useEffect(() => {
-    registerForceLogoutHandler(async () => {
-      await tokenStorage.clearTokens();
-      dispatch({ type: 'SIGN_OUT' });
+    return registerForceLogoutHandler((reason) => {
+      void forceLogout(reason).catch(() => {});
     });
-  }, []);
+  }, [forceLogout]);
 
   // ─── Sign In ────────────────────────────────
   const signIn = useCallback(async (input: LoginInput, keepSignedIn = true): Promise<void> => {
+    const version = ++sessionVersion.current;
     const data = await authService.login(input);
+    if (version !== sessionVersion.current) return;
     await tokenStorage.setKeepSignedIn(keepSignedIn);
     await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
-    dispatch({ type: 'SIGN_IN', user: data.user });
+    if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
   }, []);
 
   // ─── Sign Up ────────────────────────────────
   const signUp = useCallback(async (input: RegisterInput, keepSignedIn = true): Promise<void> => {
+    const version = ++sessionVersion.current;
     const data = await authService.register(input);
+    if (version !== sessionVersion.current) return;
     await tokenStorage.setKeepSignedIn(keepSignedIn);
     await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
-    dispatch({ type: 'SIGN_IN', user: data.user });
+    if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
   }, []);
 
   // ─── Sign Out ───────────────────────────────
   const signOut = useCallback(async (): Promise<void> => {
+    sessionVersion.current += 1;
+    dispatch({ type: 'SIGN_OUT' });
     try {
       const refreshToken = await tokenStorage.getRefreshToken();
       if (refreshToken) {
@@ -177,24 +248,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await authService.logout(refreshToken).catch(() => {});
       }
     } finally {
-      await tokenStorage.clearTokens();
-      dispatch({ type: 'SIGN_OUT' });
+      try {
+        await tokenStorage.clearTokens();
+      } finally {
+        dispatch({ type: 'SIGN_OUT' });
+      }
     }
   }, []);
 
   const refreshUser = useCallback(async (): Promise<void> => {
+    if (!userRef.current) return;
+    const version = sessionVersion.current;
     const user = await userService.getMe();
-    dispatch({ type: 'RESTORE_SESSION', user });
+    if (version === sessionVersion.current) dispatch({ type: 'RESTORE_SESSION', user });
   }, []);
 
   // ─── Update Local User Profile ──────────────
   // Used after PATCH /users/me to keep the context in sync without a full reload
   const updateUser = useCallback((updatedUser: Partial<AuthUser>): void => {
-    if (!userRef.current) return;
-    dispatch({
-      type: 'SIGN_IN',
-      user: { ...userRef.current, ...updatedUser },
-    });
+    dispatch({ type: 'UPDATE_USER', user: updatedUser });
   }, []);
 
   // ─── One-Tap Dev / Preview Login ───────────
@@ -217,8 +289,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const value: AuthContextValue = {
-    status: state.status,
+    status: splashReady ? state.status : 'loading',
     user: state.user,
+    accessToken: state.status === 'signedIn' ? state.accessToken : null,
+    logoutReason: state.logoutReason,
+    dismissLogoutReason: useCallback(() => dispatch({ type: 'DISMISS_REASON' }), []),
+    login: signIn,
+    register: signUp,
+    logout: signOut,
+    forceLogout,
     signIn,
     signUp,
     signOut,

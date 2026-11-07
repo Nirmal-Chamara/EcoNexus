@@ -1,37 +1,42 @@
-import React, { useRef } from 'react';
-import type { z } from 'zod';
+import React, { useEffect, useRef, useState } from 'react';
 import type { TextInput } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Switch,
+  Text,
+  View,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
+import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/common/Button';
-import { FormInput } from '../../components/forms/FormInput';
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
+import { Input, SegmentedTabs, Toast } from '../../components/ui';
+import { colors, radii, spacing, typography } from '../../theme';
 import { loginSchema } from '../../schemas/auth.schema';
+import { canUseBiometrics } from '../../services/biometric';
+import { tokenStorage } from '../../services/tokenStorage';
+import { mapApiError } from '../../utils/errorMapper';
 
-// ─── Validation Schema (mirrors backend Zod schema) ──────────────────────────
 type LoginForm = z.infer<typeof loginSchema>;
 
-// ─── Navigation Prop Type ─────────────────────────────────────────────────────
 interface Props {
   navigation?: {
-    navigate: (screen: string) => void;
+    navigate: (screen: string, params?: { partner?: boolean }) => void;
   };
 }
 
 export default function LoginScreen({ navigation }: Props) {
+  const { signIn, logoutReason, dismissLogoutReason } = useAuth();
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const { signIn, devLogin } = useAuth();
   const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
@@ -39,19 +44,47 @@ export default function LoginScreen({ navigation }: Props) {
   const {
     control,
     handleSubmit,
-    setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    mode: 'onChange',
     defaultValues: { email: '', password: '' },
   });
+  const email = watch('email');
+  const emailIsValid = loginSchema.shape.email.safeParse(email).success;
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([canUseBiometrics(), tokenStorage.getBiometricEnabled()]).then(
+      ([available, enabled]) => {
+        if (!mounted) return;
+        setBiometricAvailable(available);
+        setBiometricEnabled(available && enabled);
+      }
+    );
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const toggleBiometric = async () => {
+    const nextValue = !biometricEnabled;
+    setBiometricEnabled(nextValue);
+    try {
+      await tokenStorage.setBiometricEnabled(nextValue);
+    } catch {
+      setBiometricEnabled(!nextValue);
+      setServerError('Biometric preferences could not be saved. Please try again.');
+    }
+  };
 
   const onSubmit = async (data: LoginForm) => {
+    setServerError(null);
     try {
-      await signIn({ email: data.email, password: data.password }, keepSignedIn);
-      // AuthContext status updates → RootNavigator switches to role navigator automatically
-    } catch {
-      setError('password', { message: 'Invalid email or password. Please try again.' });
+      await signIn(data, keepSignedIn);
+    } catch (error: unknown) {
+      setServerError(mapApiError(error, 'Invalid email or password. Please try again.'));
     }
   };
 
@@ -65,30 +98,66 @@ export default function LoginScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🌱</Text>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>Sign in to your EcoNexus account</Text>
         </View>
 
-        {/* Form */}
+        <SegmentedTabs
+          options={[
+            { value: 'signin', label: 'Sign In' },
+            { value: 'register', label: 'Create Account' },
+          ]}
+          value="signin"
+          onChange={(value) => {
+            if (value === 'register') navigation?.navigate('Register');
+          }}
+        />
+
+        {logoutReason && (
+          <Toast
+            visible
+            tone="error"
+            duration={0}
+            onDismiss={dismissLogoutReason}
+            message={
+              logoutReason === 'SUSPENDED'
+                ? 'Your account is suspended or disabled. Contact support.'
+                : 'Your session has expired. Please sign in again.'
+            }
+          />
+        )}
+        {serverError && (
+          <Toast
+            visible
+            tone="error"
+            duration={0}
+            onDismiss={() => setServerError(null)}
+            message={serverError}
+          />
+        )}
+
         <View style={styles.form}>
           <Controller
             control={control}
             name="email"
             render={({ field: { onChange, onBlur, value } }) => (
-              <FormInput
+              <Input
                 label="Email address"
                 placeholder="you@example.com"
+                icon="mail-outline"
                 keyboardType="email-address"
-                autoCapitalize="none"
+                textContentType="emailAddress"
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect={false}
                 returnKeyType="next"
                 value={value}
                 onChangeText={onChange}
                 onBlur={onBlur}
                 error={errors.email?.message}
+                valid={emailIsValid}
                 onSubmitEditing={() => passwordRef.current?.focus()}
               />
             )}
@@ -98,11 +167,14 @@ export default function LoginScreen({ navigation }: Props) {
             control={control}
             name="password"
             render={({ field: { onChange, onBlur, value } }) => (
-              <FormInput
+              <Input
                 ref={passwordRef}
                 label="Password"
                 placeholder="Enter your password"
+                icon="lock-closed-outline"
                 isPassword
+                textContentType="password"
+                autoComplete="password"
                 returnKeyType="done"
                 value={value}
                 onChangeText={onChange}
@@ -113,8 +185,8 @@ export default function LoginScreen({ navigation }: Props) {
             )}
           />
 
-          <View style={styles.keepSignedInRow}>
-            <Text style={styles.keepSignedInLabel}>Keep me signed in</Text>
+          <View style={styles.preferenceRow}>
+            <Text style={styles.preferenceLabel}>Keep me signed in</Text>
             <Switch
               value={keepSignedIn}
               onValueChange={setKeepSignedIn}
@@ -123,20 +195,61 @@ export default function LoginScreen({ navigation }: Props) {
             />
           </View>
 
+          {biometricAvailable && (
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel="Use Bio ID to unlock this session"
+              accessibilityState={{ checked: biometricEnabled }}
+              onPress={toggleBiometric}
+              style={[styles.biometricChip, biometricEnabled && styles.biometricChipActive]}
+            >
+              <Text style={styles.biometricIcon}>◉</Text>
+              <Text style={styles.biometricText}>
+                {biometricEnabled ? 'Bio ID enabled' : 'Enable Bio ID'}
+              </Text>
+            </Pressable>
+          )}
+
           <Button
             title="Sign In"
             onPress={handleSubmit(onSubmit)}
             loading={isSubmitting}
             style={styles.submitButton}
           />
-          <TouchableOpacity
+
+          <Pressable
             style={styles.forgotPassword}
             onPress={() => navigation?.navigate('ForgotPassword')}
             accessibilityRole="button"
           >
             <Text style={styles.link}>Forgot password?</Text>
-          </TouchableOpacity>
+          </Pressable>
+
+          <View style={styles.providerRow}>
+            <Button
+              title="Continue with Google (Coming soon)"
+              variant="secondary"
+              disabled
+              fullWidth={false}
+              style={styles.providerButton}
+            />
+            <Button
+              title="Continue with Apple (Coming soon)"
+              variant="secondary"
+              disabled
+              fullWidth={false}
+              style={styles.providerButton}
+            />
+          </View>
         </View>
+
+        <Pressable
+          onPress={() => navigation?.navigate('Register', { partner: true })}
+          accessibilityRole="button"
+          style={styles.partnerLink}
+        >
+          <Text style={styles.partnerText}>Collector / Facility Partner Portal</Text>
+        </Pressable>
 
         {/* Collector Role Portal Link */}
         <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 10 }}>
@@ -176,9 +289,9 @@ export default function LoginScreen({ navigation }: Props) {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation?.navigate('Register')}>
+          <Pressable onPress={() => navigation?.navigate('Register')} accessibilityRole="button">
             <Text style={styles.link}>Create account</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -190,29 +303,53 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 48,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    gap: spacing.md,
   },
-  header: { alignItems: 'center', marginBottom: 40 },
-  logo: { fontSize: 56, marginBottom: 16 },
-  title: { ...typography.displayMedium, color: colors.textPrimary, marginBottom: 8 },
+  header: { alignItems: 'center', marginBottom: spacing.md },
+  logo: { fontSize: 56, marginBottom: spacing.md },
+  title: { ...typography.displayMedium, color: colors.textPrimary, marginBottom: spacing.sm },
   subtitle: { ...typography.body, color: colors.textSecondary, textAlign: 'center' },
-  form: { marginBottom: 24 },
-  submitButton: { marginTop: 8 },
-  forgotPassword: { alignSelf: 'flex-end', paddingVertical: 12, paddingHorizontal: 4 },
-  keepSignedInRow: {
+  form: { marginTop: spacing.sm },
+  preferenceRow: {
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
   },
-  keepSignedInLabel: { ...typography.body, color: colors.textSecondary },
+  preferenceLabel: { ...typography.body, color: colors.textSecondary },
+  biometricChip: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  biometricChipActive: { borderColor: colors.primary, backgroundColor: colors.successSurface },
+  biometricIcon: { color: colors.primary, fontSize: 18 },
+  biometricText: { ...typography.label, color: colors.textPrimary },
+  submitButton: { marginTop: spacing.sm },
+  forgotPassword: { alignSelf: 'flex-end', paddingVertical: spacing.sm, paddingHorizontal: 4 },
+  providerRow: { gap: spacing.sm, marginTop: spacing.sm },
+  providerButton: { flex: 1 },
+  partnerLink: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  partnerText: { ...typography.bodyMedium, color: colors.primary, textAlign: 'center' },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   footerText: { ...typography.body, color: colors.textMuted },
   link: { ...typography.bodyMedium, color: colors.primary },

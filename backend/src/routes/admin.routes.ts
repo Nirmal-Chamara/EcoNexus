@@ -4,6 +4,7 @@ import { authenticate, authorize, requireActive } from '../middleware/auth.middl
 import { validateRequest } from '../middleware/validation.middleware';
 import {
   userQuerySchema,
+  adminUserIdSchema,
   updateUserStatusSchema,
   verificationQuerySchema,
   processVerificationSchema,
@@ -15,6 +16,7 @@ const router = Router();
 router.use(authenticate, requireActive, authorize('ADMIN'));
 
 router.get('/users', validateRequest(userQuerySchema), AdminController.getUsers);
+router.get('/users/:id', validateRequest(adminUserIdSchema), AdminController.getUserById);
 router.patch('/users/:id/status', validateRequest(updateUserStatusSchema), AdminController.updateUserStatus);
 
 router.get('/verifications', validateRequest(verificationQuerySchema), AdminController.getVerifications);

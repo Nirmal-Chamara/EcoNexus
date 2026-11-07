@@ -1,7 +1,22 @@
 import { Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 
+async function isBiometricAvailable(): Promise<boolean> {
+  try {
+    const [hasHardware, isEnrolled] = await Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+    ]);
+    return hasHardware && isEnrolled;
+  } catch {
+    return false;
+  }
+}
+
 export async function authenticateBiometric(promptMessage: string): Promise<boolean> {
+  if (!(await isBiometricAvailable())) return false;
+
+  try {
   if (Platform.OS === 'web') return false;
   try {
     const [hasHardware, isEnrolled] = await Promise.all([
@@ -22,6 +37,7 @@ export async function authenticateBiometric(promptMessage: string): Promise<bool
 }
 
 export async function canUseBiometrics(): Promise<boolean> {
+  return isBiometricAvailable();
   if (Platform.OS === 'web') return false;
   try {
     const [hasHardware, isEnrolled] = await Promise.all([

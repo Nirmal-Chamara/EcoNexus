@@ -1,4 +1,3 @@
-// UserNavigator.tsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,6 +9,7 @@ import PickupTrackingScreen from '../screens/user/PickupTrackingScreen';
 import WasteNavigator from './WasteNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
+import { roleTabScreenOptions, TabIcon } from './tabBar';
 
 export type UserHomeStackParamList = {
   HomeMain: undefined;
@@ -44,14 +44,9 @@ export type UserTabParamList = {
 
 const Tab = createBottomTabNavigator<UserTabParamList>();
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>
-  );
-}
-
 export default function UserNavigator() {
   return (
+    <Tab.Navigator screenOptions={roleTabScreenOptions(colors.primary)}>
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
@@ -73,7 +68,9 @@ export default function UserNavigator() {
         component={HomeStackNavigator}
         options={{
           tabBarLabel: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="home-outline" focused={focused} color={color} size={size} />
+          ),
         }}
       />
       <Tab.Screen
@@ -97,7 +94,9 @@ export default function UserNavigator() {
         component={RewardsScreen}
         options={{
           tabBarLabel: 'Rewards',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⭐" focused={focused} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="trophy-outline" focused={focused} color={color} size={size} />
+          ),
         }}
       />
       <Tab.Screen
@@ -105,7 +104,9 @@ export default function UserNavigator() {
         component={ProfileStackNavigator}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon="person-outline" focused={focused} color={color} size={size} />
+          ),
         }}
       />
     </Tab.Navigator>

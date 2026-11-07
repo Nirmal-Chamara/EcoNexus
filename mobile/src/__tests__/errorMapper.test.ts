@@ -30,4 +30,25 @@ describe('mapApiError', () => {
     expect(mapApiError({ isAxiosError: true }, 'fallback')).toContain('internet connection');
     expect(mapApiError(new Error('unexpected'), 'fallback')).toBe('fallback');
   });
+
+  it('maps validation, permission, rate-limit, and conflict responses safely', () => {
+    expect(
+      mapApiError(
+        { isAxiosError: true, response: { status: 400, data: { message: 'Invalid phone' } } },
+        'fallback'
+      )
+    ).toBe('Invalid phone');
+    expect(mapApiError({ isAxiosError: true, response: { status: 403 } }, 'fallback')).toContain(
+      'permission'
+    );
+    expect(
+      mapApiError({ isAxiosError: true, response: { status: 409, data: {} } }, 'fallback')
+    ).toBe('This change conflicts with an existing account.');
+    expect(mapApiError({ isAxiosError: true, response: { status: 429 } }, 'fallback')).toContain(
+      'Too many attempts'
+    );
+    expect(mapApiError({ isAxiosError: true, response: { status: 418 } }, 'fallback')).toBe(
+      'fallback'
+    );
+  });
 });

@@ -12,7 +12,24 @@ export class UserController {
       if (!req.user) throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
 
       const result = await pool.query(
-        'SELECT id, name, email, phone, role, status, created_at, updated_at FROM users WHERE id = $1',
+        `SELECT
+           u.id,
+           u.name,
+           u.email,
+           u.phone,
+           u.role,
+           u.status,
+           u.created_at,
+           u.updated_at,
+           CASE WHEN u.status = 'REJECTED' THEN (
+             SELECT v.review_note
+             FROM verification_requests v
+             WHERE v.user_id = u.id AND v.status = 'REJECTED'
+             ORDER BY v.reviewed_at DESC NULLS LAST, v.created_at DESC
+             LIMIT 1
+           ) ELSE NULL END AS "rejectionReason"
+         FROM users u
+         WHERE u.id = $1`,
         [req.user.id]
       );
 

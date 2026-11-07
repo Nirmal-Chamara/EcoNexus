@@ -59,23 +59,51 @@ export default function EditProfileScreen() {
     reset({ name: user?.name ?? '', phone: user?.phone ?? '' });
   }, [reset, user?.name, user?.phone]);
 
+  useEffect(() => {
+    if (!isDirty || isSaving) return;
+
+    return navigation.addListener('beforeRemove', (event) => {
+      event.preventDefault();
+      Alert.alert('Discard changes?', 'Your unsaved profile changes will be lost.', [
+        { text: 'Keep editing', style: 'cancel' },
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: () => navigation.dispatch(event.data.action),
+        },
+      ]);
+    });
+  }, [isDirty, isSaving, navigation]);
+
   const onSubmit = async (data: EditProfileForm) => {
     if (!isDirty) {
       navigation.goBack();
       return;
     }
+    const previousProfile = {
+      name: user?.name ?? '',
+      phone: user?.phone ?? null,
+    };
+    const optimisticProfile = {
+      name: data.name.trim(),
+      phone: data.phone?.trim() || null,
+    };
+
     setIsSaving(true);
+    updateUser(optimisticProfile);
     try {
       const updated = await userService.updateMe({
-        name: data.name.trim(),
-        phone: data.phone?.trim() || undefined,
+        name: optimisticProfile.name,
+        phone: optimisticProfile.phone ?? undefined,
       });
-      // Sync AuthContext so the app reflects the changes instantly
+      // Reconcile the optimistic state with the canonical server response.
       updateUser({ name: updated.name, phone: updated.phone ?? null });
+      reset({ name: updated.name, phone: updated.phone ?? '' });
       Alert.alert('Profile Updated', 'Your profile has been saved successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: unknown) {
+      updateUser(previousProfile);
       if (
         axios.isAxiosError<{ code?: string }>(error) &&
         error.response?.data.code === 'PHONE_EXISTS'
