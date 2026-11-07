@@ -22,7 +22,7 @@ const FLEET_TYPES = [
 ];
 
 export default function CollectorLoginScreen({ navigation }: any) {
-  const { signIn } = useAuth();
+  const { signIn, devLogin } = useAuth();
   const [selectedFleet, setSelectedFleet] = useState<string>('TRUCK');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -154,6 +154,25 @@ export default function CollectorLoginScreen({ navigation }: any) {
           ) : (
             <Text style={styles.loginBtnText}>Sign In to Driver Fleet →</Text>
           )}
+        </TouchableOpacity>
+
+        {/* Quick Demo Preview Button */}
+        <TouchableOpacity
+          style={{
+            marginTop: 12,
+            backgroundColor: '#ECFDF5',
+            borderWidth: 1.5,
+            borderColor: '#10B981',
+            borderRadius: 14,
+            paddingVertical: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onPress={() => devLogin?.('COLLECTOR')}
+        >
+          <Text style={{ color: '#047857', fontSize: 14, fontWeight: '800' }}>
+            ⚡ Instant Look / Preview (Kamal Perera) →
+          </Text>
         </TouchableOpacity>
 
         {/* Footer Link */}

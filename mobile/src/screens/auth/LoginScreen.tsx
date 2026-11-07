@@ -32,7 +32,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, devLogin } = useAuth();
   const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
 
@@ -139,7 +139,7 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         {/* Collector Role Portal Link */}
-        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 10 }}>
           <TouchableOpacity
             style={{
               paddingVertical: 10,
@@ -153,6 +153,22 @@ export default function LoginScreen({ navigation }: Props) {
           >
             <Text style={{ color: colors.roleCollector, fontSize: 13, fontWeight: '700' }}>
               🚛 Collector Partner Sign In →
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1,
+              borderColor: '#10B981',
+            }}
+            onPress={() => devLogin?.('COLLECTOR')}
+          >
+            <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
+              ⚡ Instant Look (Collector Dashboard) →
             </Text>
           </TouchableOpacity>
         </View>
