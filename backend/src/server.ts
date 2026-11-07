@@ -3,11 +3,15 @@ import { Server } from 'socket.io';
 import app from './app';
 import { env } from './config/env';
 
+import { registerPickupSocket } from './sockets';
+
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: { origin: false },
 });
+
+registerPickupSocket(io);
 
 io.on('connection', (socket) => {
   console.log(`[Socket.io] Client connected: ${socket.id}`);

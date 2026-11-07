@@ -16,6 +16,9 @@
     "android": {
       "package": "com.econexus.app"
     },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-status-bar",
       "expo-secure-store",

@@ -37,6 +37,8 @@ export default function LoginScreen({ navigation }: Props) {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const { signIn, devLogin } = useAuth();
+  const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
 
   const {
@@ -249,6 +251,42 @@ export default function LoginScreen({ navigation }: Props) {
           <Text style={styles.partnerText}>Collector / Facility Partner Portal</Text>
         </Pressable>
 
+        {/* Collector Role Portal Link */}
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 10 }}>
+          <TouchableOpacity
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+            }}
+            onPress={() => navigation?.navigate('CollectorLogin')}
+          >
+            <Text style={{ color: colors.roleCollector, fontSize: 13, fontWeight: '700' }}>
+              🚛 Collector Partner Sign In →
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1,
+              borderColor: '#10B981',
+            }}
+            onPress={() => devLogin?.('COLLECTOR')}
+          >
+            <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
+              ⚡ Instant Look (Collector Dashboard) →
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <Pressable onPress={() => navigation?.navigate('Register')} accessibilityRole="button">
