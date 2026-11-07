@@ -4,11 +4,15 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import DashboardScreen from '../screens/user/DashboardScreen';
 import RewardsScreen from '../screens/user/RewardsScreen';
+import PickupTrackingScreen from '../screens/user/PickupTrackingScreen';
+import WasteNavigator from './WasteNavigator';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { colors } from '../theme/colors';
 
 export type UserTabParamList = {
   Dashboard: undefined;
+  WasteTab: undefined;
+  TrackTab: { pickupId?: string } | undefined;
   Rewards: undefined;
   ProfileTab: undefined;
 };
@@ -34,7 +38,7 @@ export default function UserNavigator() {
           paddingTop: 6,
           height: 64,
         },
-        tabBarActiveTintColor:   colors.primary,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
       }}
@@ -45,6 +49,22 @@ export default function UserNavigator() {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="WasteTab"
+        component={WasteNavigator}
+        options={{
+          tabBarLabel: 'Waste',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="♻️" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="TrackTab"
+        component={PickupTrackingScreen}
+        options={{
+          tabBarLabel: 'Live Track',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📍" focused={focused} />,
         }}
       />
       <Tab.Screen
