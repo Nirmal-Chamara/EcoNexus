@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import MapView, { Marker } from 'react-native-maps';
+import { SafeMapView as MapView, SafeMarker as Marker } from '../../components/common/SafeMapView';
 import { colors } from '../../theme/colors';
 import { pickupService } from '../../services/pickup.service';
 import { collectorService } from '../../services/collector.service';
@@ -40,7 +40,7 @@ export default function RequestDetailsScreen() {
     longitude: number;
   } | null>(null);
 
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
 
   const loadDetails = useCallback(async () => {
     if (!pickupId) return;
