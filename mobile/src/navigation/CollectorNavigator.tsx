@@ -1,12 +1,46 @@
 // CollectorNavigator.tsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import DashboardScreen from '../screens/collector/DashboardScreen';
+import RequestDetailsScreen from '../screens/collector/RequestDetailsScreen';
+import CapacityScreen from '../screens/collector/CapacityScreen';
+import SchedulePickupScreen from '../screens/collector/SchedulePickupScreen';
+import VerificationStatusScreen from '../screens/collector/VerificationStatusScreen';
 import { RequestsStackNavigator } from './CollectorStackNavigator';
 import CollectionHistoryScreen from '../screens/collector/CollectionHistoryScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
+
+export type CollectorHomeStackParamList = {
+  DashboardHome: undefined;
+  RequestDetails: { pickupId: string };
+  Capacity: undefined;
+  SchedulePickup: undefined;
+  VerificationStatus: undefined;
+};
+
+const HomeStack = createNativeStackNavigator<CollectorHomeStackParamList>();
+
+function CollectorHomeStackNavigator() {
+  return (
+    <HomeStack.Navigator
+      initialRouteName="DashboardHome"
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+        contentStyle: { backgroundColor: 'transparent' },
+      }}
+    >
+      <HomeStack.Screen name="DashboardHome" component={DashboardScreen} />
+      <HomeStack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+      <HomeStack.Screen name="Capacity" component={CapacityScreen} />
+      <HomeStack.Screen name="SchedulePickup" component={SchedulePickupScreen} />
+      <HomeStack.Screen name="VerificationStatus" component={VerificationStatusScreen} />
+    </HomeStack.Navigator>
+  );
+}
 
 export type CollectorTabParamList = {
   Dashboard: undefined;
@@ -50,7 +84,7 @@ export default function CollectorNavigator() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={CollectorHomeStackNavigator}
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
