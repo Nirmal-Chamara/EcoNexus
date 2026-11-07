@@ -138,6 +138,25 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* Collector Role Portal Link */}
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8 }}>
+          <TouchableOpacity
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+            }}
+            onPress={() => navigation?.navigate('CollectorLogin')}
+          >
+            <Text style={{ color: colors.roleCollector, fontSize: 13, fontWeight: '700' }}>
+              🚛 Collector Partner Sign In →
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
