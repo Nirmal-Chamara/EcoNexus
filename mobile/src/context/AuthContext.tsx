@@ -69,6 +69,8 @@ interface AuthContextValue {
   refreshUser: () => Promise<void>;
   /** Update the local user profile state after a profile edit */
   updateUser: (updatedUser: Partial<AuthUser>) => void;
+  /** Quick one-tap login for UI review and development testing */
+  devLogin: (role?: 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN') => void;
 }
 
 // ─────────────────────────────────────────────
@@ -195,6 +197,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }, []);
 
+  // ─── One-Tap Dev / Preview Login ───────────
+  const devLogin = useCallback(
+    (role: 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN' = 'COLLECTOR') => {
+      dispatch({
+        type: 'SIGN_IN',
+        user: {
+          id: '00000000-0000-0000-0000-000000000002',
+          email: 'kamal.perera@econexus.com',
+          name: 'Kamal Perera',
+          phone: '+94 77 123 4567',
+          role,
+          status: 'ACTIVE',
+          created_at: new Date().toISOString(),
+        },
+      });
+    },
+    []
+  );
+
   const value: AuthContextValue = {
     status: state.status,
     user: state.user,
@@ -203,6 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     refreshUser,
     updateUser,
+    devLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

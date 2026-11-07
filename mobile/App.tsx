@@ -1,43 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import WasteNavigator from './src/navigation/WasteNavigator';
+import { AuthProvider } from './src/context/AuthContext';
+import RootNavigator from './src/navigation/RootNavigator';
 import { tokenStorage } from './src/services/tokenStorage';
 
-// LOCAL TESTING ONLY. Do not commit this file.
-// Waits for AuthProvider's session restore to finish (it clears tokens when
-// /users/me fails against my temporary users table), then saves the dev token.
-function DevGate() {
-  const { status } = useAuth();
-  const [ready, setReady] = useState(false);
-
+function AppContent() {
   useEffect(() => {
-    if (status === 'loading') return;
-    (async () => {
-      const t = process.env.EXPO_PUBLIC_DEV_TOKEN;
-      if (t) await tokenStorage.saveTokens(t, 'dev-refresh');
-      setReady(true);
-    })();
-  }, [status]);
+    // Optional local development override: if EXPO_PUBLIC_DEV_TOKEN is configured
+    const devToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
+    if (devToken) {
+      tokenStorage.saveTokens(devToken, 'dev-refresh').catch(() => {});
+    }
+  }, []);
 
-  if (!ready) return null;
-
-  return (
-    <NavigationContainer>
-      <WasteNavigator />
-    </NavigationContainer>
-  );
+  return <RootNavigator />;
 }
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={styles.root}>
       <AuthProvider>
-        <DevGate />
-        <StatusBar style="auto" />
+        <View style={styles.root}>
+          <AppContent />
+          <StatusBar style="auto" />
+        </View>
       </AuthProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+});

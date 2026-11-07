@@ -32,7 +32,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, devLogin } = useAuth();
   const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
 
@@ -135,6 +135,41 @@ export default function LoginScreen({ navigation }: Props) {
             accessibilityRole="button"
           >
             <Text style={styles.link}>Forgot password?</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Collector Role Portal Link */}
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 10 }}>
+          <TouchableOpacity
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.3)',
+            }}
+            onPress={() => navigation?.navigate('CollectorLogin')}
+          >
+            <Text style={{ color: colors.roleCollector, fontSize: 13, fontWeight: '700' }}>
+              🚛 Collector Partner Sign In →
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 20,
+              backgroundColor: '#ECFDF5',
+              borderWidth: 1,
+              borderColor: '#10B981',
+            }}
+            onPress={() => devLogin?.('COLLECTOR')}
+          >
+            <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
+              ⚡ Instant Look (Collector Dashboard) →
+            </Text>
           </TouchableOpacity>
         </View>
 

@@ -1,6 +1,6 @@
 // RootNavigator.tsx
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
@@ -22,17 +22,15 @@ import { hasSeenOnboarding, markOnboardingSeen } from '../services/appPreference
  */
 export default function RootNavigator() {
   const { status, user, signOut } = useAuth();
-  const [onboardingSeen, setOnboardingSeen] = React.useState<boolean | null>(null);
+  const [onboardingSeen, setOnboardingSeen] = React.useState<boolean | null>(
+    Platform.OS === 'web' ? true : null
+  );
 
   React.useEffect(() => {
     if (status !== 'signedOut' || onboardingSeen !== null) return;
     hasSeenOnboarding()
       .then(setOnboardingSeen)
       .catch(() => {
-        Alert.alert(
-          'Onboarding unavailable',
-          'Continuing to sign in without saving onboarding progress.'
-        );
         setOnboardingSeen(true);
       });
   }, [onboardingSeen, status]);

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -19,10 +20,11 @@ export default function SplashScreen() {
   const spinAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const useNative = Platform.OS !== 'web';
     // Entry animation
     Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 700, useNativeDriver: useNative }),
+      Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: useNative }),
     ]).start();
 
     // Continuous spinner
@@ -31,7 +33,7 @@ export default function SplashScreen() {
         toValue: 1,
         duration: 1400,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: useNative,
       })
     ).start();
   }, []);
