@@ -54,6 +54,17 @@ export interface PickupRequest {
   user_name?: string;
   user_phone?: string;
   user_email?: string;
+  allocation?: {
+    id: string;
+    pickup_request_id: string;
+    collector_id: string;
+    assigned_at: string;
+    status: string;
+    completed_at?: string | null;
+    collector_name?: string;
+    collector_email?: string;
+    collector_phone?: string;
+  } | null;
 }
 
 export interface CreatePickupDto {
