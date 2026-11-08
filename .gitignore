@@ -18,3 +18,4 @@ uploads/*
 *.h5
 *.keystore
 *.jks
+.expo/
