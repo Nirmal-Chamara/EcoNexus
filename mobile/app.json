@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "EcoNexus",
+    "slug": "econexus",
+    "scheme": "econexus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0A0F0D"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.econexus.app"
+    },
+    "android": {
+      "package": "com.econexus.app"
+    },
+    "plugins": [
+      "expo-status-bar",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow EcoNexus to use Face ID for secure login."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#22C55E"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
+    }
+  }
+}

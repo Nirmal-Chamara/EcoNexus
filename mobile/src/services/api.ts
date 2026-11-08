@@ -1,0 +1,194 @@
+import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { env } from '../config/env';
+import { tokenStorage } from './tokenStorage';
+import type { ApiEnvelope, RefreshTokenResponse } from '../types/user';
+import type { ApiError } from '../types/api';
+import type { ForceLogoutReason } from '../types/session';
+import { setNetworkOffline } from './networkStatus';
+
+export function logoutReasonForError(error: unknown): ForceLogoutReason {
+  if (
+    axios.isAxiosError<ApiError>(error) &&
+    error.response?.status === 403 &&
+    (error.response.data?.code === 'ACCOUNT_DISABLED' ||
+      error.response.data?.code === 'ACCOUNT_SUSPENDED')
+  ) {
+    return 'SUSPENDED';
+  }
+  return 'SESSION_EXPIRED';
+}
+
+// ─────────────────────────────────────────────
+// Axios Instance
+// ─────────────────────────────────────────────
+export const apiClient = axios.create({
+  baseURL: env.API_URL,
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
+// ─────────────────────────────────────────────
+// Single-flight refresh lock
+// Prevents multiple concurrent 401 responses from
+// each triggering an independent refresh request.
+// ─────────────────────────────────────────────
+let isRefreshing = false;
+let refreshQueue: {
+  resolve: (token: string) => void;
+  reject: (err: unknown) => void;
+}[] = [];
+
+function resolveQueue(newAccessToken: string): void {
+  refreshQueue.forEach(({ resolve }) => resolve(newAccessToken));
+  refreshQueue = [];
+}
+
+function rejectQueue(error: unknown): void {
+  refreshQueue.forEach(({ reject }) => reject(error));
+  refreshQueue = [];
+}
+
+// ─────────────────────────────────────────────
+// Global force-logout emitter
+// AuthContext subscribes to this to trigger sign-out
+// from anywhere in the app (including interceptors).
+// ─────────────────────────────────────────────
+type ForceLogoutHandler = (reason: ForceLogoutReason) => void;
+let _forceLogoutHandler: ForceLogoutHandler | null = null;
+
+export function registerForceLogoutHandler(handler: ForceLogoutHandler): () => void {
+  _forceLogoutHandler = handler;
+  return () => {
+    if (_forceLogoutHandler === handler) _forceLogoutHandler = null;
+  };
+}
+
+export function triggerForceLogout(reason: ForceLogoutReason = 'SESSION_EXPIRED'): void {
+  if (_forceLogoutHandler) {
+    void _forceLogoutHandler(reason);
+  }
+}
+
+async function invalidateSession(reason: ForceLogoutReason): Promise<void> {
+  // Notify even if native storage deletion fails.
+  triggerForceLogout(reason);
+  await tokenStorage.clearTokens().catch(() => {});
+}
+
+// ─────────────────────────────────────────────
+// Request Interceptor — attach Bearer token
+// ─────────────────────────────────────────────
+apiClient.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    const accessToken = await tokenStorage.getAccessToken();
+    if (accessToken && config.headers) {
+      config.headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ─────────────────────────────────────────────
+// Response Interceptor — transparent token refresh on 401
+// ─────────────────────────────────────────────
+apiClient.interceptors.response.use(
+  (response) => {
+    setNetworkOffline(false);
+    return response;
+  },
+  async (error: AxiosError) => {
+    if (!axios.isCancel(error) && !error.response) setNetworkOffline(true);
+
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        })
+      | undefined;
+
+    const requestUrl = originalRequest?.url ?? '';
+    const publicAuth =
+      /\/auth\/(login|register|forgot-password|reset-password|refresh-token)(?:\?|$)/.test(
+        requestUrl
+      );
+    if (!publicAuth && logoutReasonForError(error) === 'SUSPENDED') {
+      await invalidateSession('SUSPENDED');
+      return Promise.reject(error);
+    }
+    if (!publicAuth && error.response?.status === 401 && originalRequest?._retry) {
+      await invalidateSession('SESSION_EXPIRED');
+      return Promise.reject(error);
+    }
+    // Only handle 401 Unauthorized errors that haven't been retried already
+    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // Skip refresh attempt for auth endpoints themselves
+    const url = originalRequest.url || '';
+    if (
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh')
+    ) {
+      return Promise.reject(error);
+    }
+
+    if (isRefreshing) {
+      // Queue this request until the in-flight refresh completes
+      return new Promise<string>((resolve, reject) => {
+        refreshQueue.push({ resolve, reject });
+      })
+        .then((newAccessToken) => {
+          originalRequest._retry = true;
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+          return apiClient(originalRequest);
+        })
+        .catch(() => Promise.reject(error));
+    }
+
+    // Start a new refresh cycle
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      const storedRefreshToken = await tokenStorage.getRefreshToken();
+
+      if (!storedRefreshToken) {
+        throw new Error('No refresh token stored');
+      }
+
+      const response = await axios.post<ApiEnvelope<RefreshTokenResponse>>(
+        `${env.API_URL}/auth/refresh-token`,
+        { refreshToken: storedRefreshToken },
+        { timeout: 15000, headers: { 'Content-Type': 'application/json' } }
+      );
+
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
+
+      // Persist rotated tokens
+      await tokenStorage.saveTokens(
+        newAccessToken,
+        newRefreshToken,
+        await tokenStorage.getKeepSignedIn()
+      );
+
+      // Unblock all queued requests
+      resolveQueue(newAccessToken);
+
+      // Retry the original request with fresh token
+      originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+      return apiClient(originalRequest);
+    } catch (refreshError) {
+      rejectQueue(refreshError);
+      await invalidateSession(logoutReasonForError(refreshError));
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
+    }
+  }
+);

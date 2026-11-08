@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS waste_categories (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) UNIQUE NOT NULL,
+  description TEXT,
+  icon VARCHAR(50),
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
