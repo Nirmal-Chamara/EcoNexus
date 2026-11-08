@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import EcoNexusLogo from '../../components/common/EcoNexusLogo';
 
 /**
  * SplashScreen — displayed by RootNavigator while AuthContext status = 'loading'.
@@ -46,8 +47,7 @@ export default function SplashScreen() {
       <Animated.View
         style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
       >
-        <Text style={styles.logoEmoji}>🌱</Text>
-        <Text style={styles.appName}>EcoNexus</Text>
+        <EcoNexusLogo size="xl" containerStyle={{ marginBottom: 12 }} />
         <Text style={styles.tagline}>Smart Waste & Recycling</Text>
       </Animated.View>
 
