@@ -15,6 +15,7 @@ import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAuth } from '../../hooks/useAuth';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Button } from '../../components/common/Button';
 import { Input, SegmentedTabs, Toast } from '../../components/ui';
 import { colors, radii, spacing, typography } from '../../theme';
@@ -33,6 +34,12 @@ interface Props {
 
 export default function LoginScreen({ navigation }: Props) {
   const { signIn, logoutReason, dismissLogoutReason } = useAuth();
+  const {
+    promptGoogleSignIn,
+    isLoading: isGoogleLoading,
+    error: googleError,
+    clearError: clearGoogleError,
+  } = useGoogleAuth();
   const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
@@ -128,13 +135,16 @@ export default function LoginScreen({ navigation }: Props) {
             }
           />
         )}
-        {serverError && (
+        {(serverError || googleError) && (
           <Toast
             visible
             tone="error"
             duration={0}
-            onDismiss={() => setServerError(null)}
-            message={serverError}
+            onDismiss={() => {
+              setServerError(null);
+              clearGoogleError();
+            }}
+            message={serverError || googleError || ''}
           />
         )}
 
@@ -227,11 +237,13 @@ export default function LoginScreen({ navigation }: Props) {
 
           <View style={styles.providerRow}>
             <Button
-              title="Continue with Google (Coming soon)"
+              title="Continue with Google"
               variant="secondary"
-              disabled
+              loading={isGoogleLoading}
+              onPress={() => promptGoogleSignIn(keepSignedIn)}
               fullWidth={false}
               style={styles.providerButton}
+              accessibilityLabel="Continue with Google"
             />
             <Button
               title="Continue with Apple (Coming soon)"

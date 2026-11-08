@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pool } from '../config/database';
 import authRoutes from './auth.routes';
 import wasteRoutes from './waste.routes';
 import userRoutes from './user.routes';
@@ -8,12 +9,23 @@ import collectorRoutes from './collector.routes';
 
 const router = Router();
 
-router.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'econexus-backend',
-  });
+router.get('/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({
+      status: 'ok',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      service: 'econexus-backend',
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'degraded',
+      database: 'disconnected',
+      timestamp: new Date().toISOString(),
+      service: 'econexus-backend',
+    });
+  }
 });
 
 router.use('/auth', authRoutes);

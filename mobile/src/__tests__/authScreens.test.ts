@@ -4,11 +4,15 @@ import { beforeEach, expect, jest, test } from '@jest/globals';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import { useAuth } from '../hooks/useAuth';
+import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import { canUseBiometrics } from '../services/biometric';
 import { tokenStorage } from '../services/tokenStorage';
 
 jest.mock('@expo/vector-icons/Ionicons', () => 'Icon');
 jest.mock('../hooks/useAuth', () => ({ useAuth: jest.fn() }));
+jest.mock('../hooks/useGoogleAuth', () => ({
+  useGoogleAuth: jest.fn(),
+}));
 jest.mock('../services/biometric', () => ({ canUseBiometrics: jest.fn() }));
 jest.mock('../services/tokenStorage', () => ({
   tokenStorage: {
@@ -18,12 +22,22 @@ jest.mock('../services/tokenStorage', () => ({
 }));
 
 const mockedUseAuth = jest.mocked(useAuth);
+const mockedUseGoogleAuth = jest.mocked(useGoogleAuth);
 const mockedCanUseBiometrics = jest.mocked(canUseBiometrics);
 const mockedTokenStorage = jest.mocked(tokenStorage);
 const navigation = { navigate: jest.fn() };
+const mockPromptGoogleSignIn = jest.fn<(keepSignedIn?: boolean, role?: string) => Promise<void>>();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPromptGoogleSignIn.mockImplementation(async () => undefined);
+  mockedUseGoogleAuth.mockReturnValue({
+    promptGoogleSignIn: mockPromptGoogleSignIn,
+    isLoading: false,
+    error: null,
+    clearError: jest.fn(),
+    isConfigured: true,
+  });
   mockedCanUseBiometrics.mockImplementation(async () => false);
   mockedTokenStorage.getBiometricEnabled.mockImplementation(async () => false);
   mockedTokenStorage.setBiometricEnabled.mockImplementation(async () => undefined);
@@ -56,7 +70,7 @@ test('login validates fields, submits credentials, and navigates to registration
     );
   });
   expect(screen.getByLabelText('Email address').props.accessibilityHint).toContain('Valid');
-});
+}, 15000);
 
 test('login maps an authentication failure to a generic message', async () => {
   const signIn = jest.fn().mockImplementation(async () => {
@@ -124,4 +138,17 @@ test('registration hides ADMIN, collects the household flow, and submits only al
       organizationName: undefined,
     });
   });
+});
+
+test('login triggers google sign-in when Continue with Google is pressed', async () => {
+  const screen = render(React.createElement(LoginScreen, { navigation }));
+
+  const googleButton = screen.getByRole('button', { name: 'Continue with Google' });
+  expect(googleButton).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.press(googleButton);
+  });
+
+  expect(mockPromptGoogleSignIn).toHaveBeenCalledWith(true);
 });

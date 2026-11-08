@@ -92,6 +92,9 @@ export interface AuthContextValue {
   signUp: (input: RegisterInput, keepSignedIn?: boolean) => Promise<void>;
   /** Sign out the current user and revoke tokens */
   signOut: () => Promise<void>;
+  /** Sign in or register with Google OAuth ID token */
+  signInWithGoogle: (idToken: string, keepSignedIn?: boolean, role?: string) => Promise<void>;
+  loginWithGoogle?: (idToken: string, keepSignedIn?: boolean, role?: string) => Promise<void>;
   /** Reload the authenticated profile from the server. */
   refreshUser: () => Promise<void>;
   /** Update the local user profile state after a profile edit */
@@ -237,6 +240,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
   }, []);
 
+  // ─── Sign In with Google ────────────────────
+  const signInWithGoogle = useCallback(
+    async (idToken: string, keepSignedIn = true, role?: string): Promise<void> => {
+      const version = ++sessionVersion.current;
+      const data = await authService.loginWithGoogle(idToken, role);
+      if (version !== sessionVersion.current) return;
+      await tokenStorage.setKeepSignedIn(keepSignedIn);
+      await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
+      if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
+    },
+    []
+  );
+
   // ─── Sign Out ───────────────────────────────
   const signOut = useCallback(async (): Promise<void> => {
     sessionVersion.current += 1;
@@ -300,6 +316,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     forceLogout,
     signIn,
     signUp,
+    signInWithGoogle,
+    loginWithGoogle: signInWithGoogle,
     signOut,
     refreshUser,
     updateUser,

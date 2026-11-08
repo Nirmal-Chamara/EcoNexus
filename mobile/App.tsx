@@ -5,6 +5,7 @@ import { StyleSheet, View, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import RootNavigator from './src/navigation/RootNavigator';
 import NetworkStatusBanner from './src/components/common/NetworkStatusBanner';
 import ThemePreviewScreen from './src/screens/dev/ThemePreviewScreen';
@@ -28,7 +29,7 @@ export default function App() {
   const [showComponents, setShowComponents] = React.useState(false);
 
   React.useEffect(() => {
-    if (__DEV__) {
+    if (__DEV__ && DevSettings?.addMenuItem) {
       DevSettings.addMenuItem('EcoNexus design tokens', () => setShowTokens(true));
       DevSettings.addMenuItem('EcoNexus component gallery', () => setShowComponents(true));
     }
@@ -38,7 +39,9 @@ export default function App() {
     <SafeAreaProvider style={styles.root}>
       <AuthProvider>
         <NetworkStatusBanner />
-        <RootNavigator />
+        <ErrorBoundary>
+          <RootNavigator />
+        </ErrorBoundary>
         <StatusBar style="light" />
         <View style={styles.root}>
           <AppContent />

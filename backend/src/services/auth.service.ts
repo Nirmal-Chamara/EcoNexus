@@ -5,8 +5,9 @@ import { signAccessToken, hashToken, generateRefreshToken } from '../utils/token
 import { generateRandomToken } from '../utils/crypto';
 import { hashSha256 } from '../utils/crypto';
 import { sendPasswordResetEmail } from './email.service';
+import { GoogleService } from './google.service';
 import { AppError } from '../utils/AppError';
-import { RegisterInput, LoginInput } from '../validators/auth.validator';
+import { RegisterInput, LoginInput, GoogleAuthInput } from '../validators/auth.validator';
 import { UserRole, AccountStatus } from '../types/express.d';
 
 export interface AuthSessionResponse {
@@ -270,13 +271,124 @@ export class AuthService {
     );
   }
 
-  static async requestPasswordReset(email: string): Promise<void> {
+  /**
+   * Google OAuth login or registration.
+   * If user with this email or google_id exists, log in and link google_id.
+   * If new user, create account and return active session.
+   */
+  static async loginWithGoogle(input: GoogleAuthInput): Promise<AuthSessionResponse> {
+    const payload = await GoogleService.verifyIdToken(input.idToken);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const existingUserRes = await client.query(
+        `SELECT id, name, email, role, status, token_version, google_id, avatar_url
+         FROM users
+         WHERE google_id = $1 OR email = $2
+         FOR UPDATE`,
+        [payload.sub, payload.email.toLowerCase()]
+      );
+
+      let user = existingUserRes.rows[0];
+
+      if (user) {
+        if (user.status === 'SUSPENDED' || user.status === 'REJECTED') {
+          throw new AppError(403, `Account is ${user.status.toLowerCase()}`, 'ACCOUNT_DISABLED');
+        }
+
+        const updates: string[] = ['last_login_at = NOW()'];
+        const updateParams: (string | null)[] = [];
+        let pIndex = 1;
+
+        if (!user.google_id) {
+          updates.push(`google_id = $${pIndex++}`);
+          updateParams.push(payload.sub);
+        }
+        if (!user.avatar_url && payload.picture) {
+          updates.push(`avatar_url = $${pIndex++}`);
+          updateParams.push(payload.picture);
+        }
+
+        updateParams.push(user.id);
+        await client.query(
+          `UPDATE users SET ${updates.join(', ')} WHERE id = $${pIndex}`,
+          updateParams
+        );
+      } else {
+        const role: UserRole = input.role || 'USER';
+        const initialStatus: AccountStatus = role === 'USER' ? 'ACTIVE' : 'PENDING_VERIFICATION';
+
+        const insertRes = await client.query(
+          `INSERT INTO users (name, email, google_id, auth_provider, avatar_url, role, status, last_login_at)
+           VALUES ($1, $2, $3, 'google', $4, $5, $6, NOW())
+           RETURNING id, name, email, role, status, token_version`,
+          [
+            payload.name,
+            payload.email.toLowerCase(),
+            payload.sub,
+            payload.picture || null,
+            role,
+            initialStatus,
+          ]
+        );
+        user = insertRes.rows[0];
+
+        if (role === 'COLLECTOR' || role === 'RECYCLING_CENTER') {
+          await client.query(
+            `INSERT INTO verification_requests (user_id, requested_role)
+             VALUES ($1, $2)`,
+            [user.id, role]
+          );
+        }
+      }
+
+      // Issue tokens
+      const rawRefreshToken = generateRefreshToken();
+      const hashedRefreshToken = hashToken(rawRefreshToken);
+      const familyId = generateRandomToken(16);
+      const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+      await client.query(
+        `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
+         VALUES ($1, $2, $3, false, $4)`,
+        [user.id, hashedRefreshToken, familyId, expiresAt]
+      );
+
+      await client.query('COMMIT');
+
+      const accessToken = signAccessToken({
+        id: user.id,
+        role: user.role,
+        token_version: user.token_version || 0,
+      });
+
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        },
+        accessToken,
+        refreshToken: rawRefreshToken,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async requestPasswordReset(email: string): Promise<string | undefined> {
     const result = await pool.query<{ id: string; email: string }>(
       'SELECT id, email FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
     const user = result.rows[0];
-    if (!user) return;
+    if (!user) return undefined;
 
     const token = generateRandomToken(32);
     const tokenHash = hashSha256(token);
@@ -294,12 +406,14 @@ export class AuthService {
 
     try {
       await sendPasswordResetEmail(user.email, token);
+      return env.NODE_ENV !== 'production' ? token : undefined;
     } catch {
       await pool.query(
         'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
         [tokenHash]
       );
       console.error('Password reset email delivery failed');
+      return undefined;
     }
   }
 

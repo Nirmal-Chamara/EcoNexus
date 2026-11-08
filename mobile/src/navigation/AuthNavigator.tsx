@@ -12,7 +12,7 @@ export type AuthStackParamList = {
   CollectorLogin: undefined;
   Register: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { token?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();

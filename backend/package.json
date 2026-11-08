@@ -11,7 +11,10 @@
     "migrate": "ts-node src/scripts/migrate.ts",
     "migrate:prod": "node dist/scripts/migrate.js",
     "seed:admin": "ts-node src/scripts/seedAdmin.ts",
-    "seed:admin:prod": "node dist/scripts/seedAdmin.js"
+    "seed:admin:prod": "node dist/scripts/seedAdmin.js",
+    "clean:tokens": "ts-node src/scripts/cleanExpiredTokens.ts",
+    "clean:tokens:prod": "node dist/scripts/cleanExpiredTokens.js",
+    "test:email": "ts-node src/scripts/testEmail.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

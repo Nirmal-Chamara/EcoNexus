@@ -25,6 +25,17 @@ export const authService = {
   },
 
   /**
+   * Login or register using Google OAuth ID token.
+   */
+  async loginWithGoogle(idToken: string, role?: string): Promise<AuthResponse> {
+    const response = await apiClient.post<ApiEnvelope<AuthResponse>>('/auth/google', {
+      idToken,
+      role,
+    });
+    return response.data.data;
+  },
+
+  /**
    * Refresh the access token using the stored refresh token.
    */
   async refresh(refreshToken: string): Promise<RefreshTokenResponse> {
@@ -48,8 +59,12 @@ export const authService = {
     await apiClient.post<{ message: string }>('/auth/logout-all');
   },
 
-  async requestPasswordReset(email: string): Promise<void> {
-    await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
+  async requestPasswordReset(email: string): Promise<{ message: string; devResetToken?: string }> {
+    const response = await apiClient.post<{ message: string; devResetToken?: string }>(
+      '/auth/forgot-password',
+      { email }
+    );
+    return response.data;
   },
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

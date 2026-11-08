@@ -62,6 +62,14 @@ export const resetPasswordConfirmSchema = z.object({
 
 export const forgotPasswordSchema = resetPasswordRequestSchema;
 
+export const googleAuthSchema = z.object({
+  body: z.object({
+    idToken: z.string().min(1, 'Google ID token is required'),
+    role: userRoleSchema.optional().default('USER'),
+  }),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>['body'];
 export type LoginInput = z.infer<typeof loginSchema>['body'];
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>['body'];
+export type GoogleAuthInput = z.infer<typeof googleAuthSchema>['body'];

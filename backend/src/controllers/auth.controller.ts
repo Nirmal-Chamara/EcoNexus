@@ -5,9 +5,10 @@ import { AppError } from '../utils/AppError';
 export class AuthController {
   static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      await AuthService.requestPasswordReset(req.body.email);
+      const devToken = await AuthService.requestPasswordReset(req.body.email);
       res.status(202).json({
         message: 'If an account exists for that email, a reset code will be sent.',
+        ...(devToken ? { devResetToken: devToken } : {}),
       });
     } catch (error) {
       next(error);
@@ -18,6 +19,21 @@ export class AuthController {
     try {
       await AuthService.resetPassword(req.body.token, req.body.newPassword);
       res.status(200).json({ message: 'Password reset successfully. Please sign in.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/auth/google
+   */
+  static async googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AuthService.loginWithGoogle(req.body);
+      res.status(200).json({
+        message: 'Google authentication successful',
+        data: result,
+      });
     } catch (error) {
       next(error);
     }
