@@ -16,3 +16,5 @@ coverage/
 uploads/*
 !uploads/.gitkeep
 *.h5
+*.keystore
+*.jks
