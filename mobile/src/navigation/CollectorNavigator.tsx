@@ -1,11 +1,11 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DashboardScreen from '../screens/collector/DashboardScreen';
 import RequestsScreen from '../screens/collector/RequestsScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
-import { colors } from '../theme/colors';
-import { roleTabScreenOptions, TabIcon } from './tabBar';
+import { TabIcon } from './tabBar';
 
 export type CollectorTabParamList = {
   Dashboard: undefined;
@@ -18,24 +18,23 @@ const Tab = createBottomTabNavigator<CollectorTabParamList>();
 
 export default function CollectorNavigator() {
   return (
-    <Tab.Navigator screenOptions={roleTabScreenOptions(colors.roleCollector)}>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: '#059669',
+        tabBarInactiveTintColor: '#6B7280',
+        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarHideOnKeyboard: true,
+      }}
+    >
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarLabel: 'Dashboard',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="home-outline" focused={focused} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Requests"
-        component={RequestsScreen}
-        options={{
-          tabBarLabel: 'Requests',
-          tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="clipboard-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'home' : 'home-outline'} focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -43,9 +42,19 @@ export default function CollectorNavigator() {
         name="ServiceArea"
         component={ServiceAreaScreen}
         options={{
-          tabBarLabel: 'Area',
+          tabBarLabel: 'Map',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="map-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'map' : 'map-outline'} focused={focused} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{
+          tabBarLabel: 'Collect',
+          tabBarIcon: ({ focused, color, size }) => (
+            <TabIcon icon={focused ? 'car' : 'car-outline'} focused={focused} color={color} size={size} />
           ),
         }}
       />
@@ -53,12 +62,33 @@ export default function CollectorNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Hub',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="person-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'business' : 'business-outline'} focused={focused} color={color} size={size} />
           ),
         }}
       />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopColor: '#E5E7EB',
+    borderTopWidth: 1,
+    height: 64,
+    paddingTop: 6,
+    paddingBottom: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+});
