@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoNexus — Collector Portal Login Design</title>
+  <style>
+    :root {
+      /* EcoNexus Design System Tokens */
+      --color-background: #0A0F0D;
+      --color-surface: #111A14;
+      --color-surface-alt: #182419;
+      --color-border: #1F3022;
+      --color-border-focus: #F59E0B;
+      --color-primary: #22C55E;
+      --color-role-collector: #F59E0B;
+      --color-role-collector-surface: rgba(245, 158, 11, 0.12);
+      --color-text-primary: #F0FDF4;
+      --color-text-secondary: #A7F3D0;
+      --color-text-muted: #6B7280;
+      --color-text-inverse: #0A0F0D;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #050807;
+      font-family: var(--font-family);
+      color: var(--color-text-primary);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* Mobile Frame (iPhone 15 / Pixel 8 canvas: 390px x 844px) */
+    .mobile-frame {
+      width: 390px;
+      min-height: 844px;
+      background-color: var(--color-background);
+      border: 1px solid var(--color-border);
+      border-radius: 40px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Status Bar Mock */
+    .status-bar {
+      height: 48px;
+      padding: 14px 28px 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .content {
+      padding: 24px 28px 36px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    /* Brand Header */
+    .brand-header {
+      margin-top: 12px;
+      margin-bottom: 28px;
+    }
+
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: var(--color-role-collector-surface);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .role-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--color-role-collector);
+    }
+
+    .role-badge-text {
+      color: var(--color-role-collector);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--color-text-primary);
+      line-height: 1.2;
+      letter-spacing: -0.5px;
+    }
+
+    .title span {
+      color: var(--color-role-collector);
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--color-text-muted);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* Vehicle Fleet Selection Pills */
+    .fleet-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .fleet-pills {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .fleet-pill {
+      flex: 1;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .fleet-pill.active {
+      border-color: var(--color-role-collector);
+      background-color: var(--color-role-collector-surface);
+    }
+
+    .fleet-pill-icon {
+      font-size: 18px;
+    }
+
+    .fleet-pill-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+    }
+
+    .fleet-pill.active .fleet-pill-label {
+      color: var(--color-role-collector);
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      font-size: 16px;
+      color: var(--color-text-muted);
+    }
+
+    .form-input {
+      width: 100%;
+      background-color: var(--color-surface-alt);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 14px 14px 14px 42px;
+      color: var(--color-text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus {
+      border-color: var(--color-role-collector);
+    }
+
+    /* Options Row */
+    .options-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+    }
+
+    .checkbox {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1px solid var(--color-border);
+      background-color: var(--color-surface-alt);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      accent-color: var(--color-role-collector);
+    }
+
+    .forgot-link {
+      color: var(--color-role-collector);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* Action Buttons */
+    .primary-btn {
+      width: 100%;
+      background-color: var(--color-role-collector);
+      color: var(--color-text-inverse);
+      font-weight: 700;
+      font-size: 15px;
+      padding: 15px;
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+      transition: transform 0.15s ease, opacity 0.2s ease;
+    }
+
+    .primary-btn:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: auto;
+      text-align: center;
+      padding-top: 24px;
+    }
+
+    .footer-text {
+      font-size: 13px;
+      color: var(--color-text-muted);
+    }
+
+    .footer-link {
+      color: var(--color-role-collector);
+      font-weight: 600;
+      text-decoration: none;
+      margin-left: 4px;
+    }
+
+    .home-indicator {
+      width: 134px;
+      height: 5px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      margin: 12px auto 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Viewport Canvas Frame -->
+  <div class="mobile-frame">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>5G &nbsp; 🔋</span>
+    </div>
+
+    <!-- Screen Content -->
+    <div class="content">
+      <!-- Header -->
+      <div class="brand-header">
+        <div class="role-badge">
+          <div class="role-badge-dot"></div>
+          <span class="role-badge-text">Collector Portal</span>
+        </div>
+        <h1 class="title">Driver &amp; Fleet<br><span>Sign In</span></h1>
+        <p class="subtitle">Access active municipal waste pickup requests and live GPS route guidance.</p>
+      </div>
+
+      <!-- Vehicle Fleet Selection -->
+      <div class="fleet-section-title">Fleet Type</div>
+      <div class="fleet-pills">
+        <div class="fleet-pill active">
+          <span class="fleet-pill-icon">🚛</span>
+          <span class="fleet-pill-label">Truck</span>
+        </div>
+        <div class="fleet-pill">
+          <span class="fleet-pill-icon">🚐</span>
+          <span class="fleet-pill-label">Van</span>
+        </div>
+        <div class="fleet-pill">
+          <span class="fleet-pill-icon">🛺</span>
+          <span class="fleet-pill-label">3-Wheeler</span>
+        </div>
+        <div class="fleet-pill">
+          <span class="fleet-pill-icon">🚲</span>
+          <span class="fleet-pill-label">Bicycle</span>
+        </div>
+      </div>
+
+      <!-- Credentials Form -->
+      <div class="form-group">
+        <label class="form-label">Driver Email or Phone</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input type="email" class="form-input" placeholder="driver@econexus.com" value="driver@econexus.com">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Access PIN / Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input type="password" class="form-input" placeholder="••••••••" value="••••••••">
+        </div>
+      </div>
+
+      <!-- Remember & Forgot -->
+      <div class="options-row">
+        <label class="remember-me">
+          <input type="checkbox" class="checkbox" checked>
+          <span>Remember Fleet Device</span>
+        </label>
+        <a href="#forgot" class="forgot-link">Forgot?</a>
+      </div>
+
+      <!-- Primary Action Button -->
+      <button class="primary-btn">
+        <span>Sign In to Driver Fleet</span>
+        <span>→</span>
+      </button>
+
+      <!-- Footer Registration -->
+      <div class="footer">
+        <p class="footer-text">
+          Want to become an EcoNexus partner?
+          <a href="#register" class="footer-link">Apply Here</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- iOS Home Indicator -->
+    <div class="home-indicator"></div>
+  </div>
+
+</body>
+</html>
+

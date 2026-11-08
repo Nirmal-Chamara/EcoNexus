@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -50,16 +51,53 @@ export function subscribeAccessToken(listener: (token: string | null) => void): 
 function setAccessToken(token: string | null): void {
   _memoryAccessToken = token;
   accessListeners.forEach((listener) => listener(token));
+const _memoryStorage = new Map<string, string>();
+
+const isWeb = Platform.OS === 'web';
+
+async function storageGet(key: string): Promise<string | null> {
+  if (isWeb) {
+    try {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : (_memoryStorage.get(key) ?? null);
+    } catch {
+      return _memoryStorage.get(key) ?? null;
+    }
+  }
+  try {
+    return await SecureStore.getItemAsync(key);
+  } catch {
+    return _memoryStorage.get(key) ?? null;
+  }
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  _memoryStorage.set(key, value);
+  if (isWeb) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    } catch {}
+    return;
+  }
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch {}
+}
+
+async function storageDelete(key: string): Promise<void> {
+  _memoryStorage.delete(key);
+  if (isWeb) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    } catch {}
+    return;
+  }
+  try {
+    await SecureStore.deleteItemAsync(key);
+  } catch {}
 }
 
 /**
- * Secure token storage using expo-secure-store.
- *
- * Strategy (matches §3.3 of MASTER_PLAN_FRONTEND_AUTH_RBAC.md):
- *   - Access token: memory only (short-lived, 15 min)
- *   - Refresh token (14d):
- *       keepSignedIn = true  → SecureStore (survives app kill / restart)
- *       keepSignedIn = false → memory only  (cleared when app is killed)
+ * Universal token storage using expo-secure-store (Native) and localStorage (Web).
  */
 export const tokenStorage = {
   // ── Preference ─────────────────────────────────────────────────
@@ -71,6 +109,11 @@ export const tokenStorage = {
   async getKeepSignedIn(): Promise<boolean> {
     const val = await read(KEYS.KEEP_SIGNED_IN);
     // Default to true (checked) if not yet set
+    await storageSet(KEYS.KEEP_SIGNED_IN, value ? '1' : '0');
+  },
+
+  async getKeepSignedIn(): Promise<boolean> {
+    const val = await storageGet(KEYS.KEEP_SIGNED_IN);
     return val !== '0';
   },
 
@@ -82,19 +125,22 @@ export const tokenStorage = {
 
   async getBiometricEnabled(): Promise<boolean> {
     const val = await read(KEYS.BIOMETRIC_ENABLED);
+    await storageSet(KEYS.BIOMETRIC_ENABLED, value ? '1' : '0');
+  },
+
+  async getBiometricEnabled(): Promise<boolean> {
+    const val = await storageGet(KEYS.BIOMETRIC_ENABLED);
     return val === '1';
   },
 
   // ── Token persistence ───────────────────────────────────────────
 
-  /**
-   * Save tokens after login or token rotation.
-   * @param keepSignedIn - If false, refresh token goes to memory only.
-   */
   async saveTokens(accessToken: string, refreshToken: string, keepSignedIn = true): Promise<void> {
     await tokenStorage.saveRefresh(refreshToken, keepSignedIn);
     setAccessToken(accessToken);
   },
+    _memoryAccessToken = accessToken;
+    await storageDelete(KEYS.LEGACY_ACCESS_TOKEN);
 
   async saveRefresh(refreshToken: string, keepSignedIn = true): Promise<void> {
     await remove(KEYS.LEGACY_ACCESS_TOKEN);
@@ -104,6 +150,10 @@ export const tokenStorage = {
       _memoryRefreshToken = null;
     } else {
       await remove(KEYS.REFRESH_TOKEN);
+      await storageSet(KEYS.REFRESH_TOKEN, refreshToken);
+      _memoryRefreshToken = null;
+    } else {
+      await storageDelete(KEYS.REFRESH_TOKEN);
       _memoryRefreshToken = refreshToken;
     }
   },
@@ -119,24 +169,21 @@ export const tokenStorage = {
     return _memoryAccessToken;
   },
 
-  /**
-   * Retrieve the refresh token from the correct storage location.
-   * Checks SecureStore first (persisted), then falls back to memory.
-   */
   async getRefreshToken(): Promise<string | null> {
     return tokenStorage.getRefresh();
+    const persisted = await storageGet(KEYS.REFRESH_TOKEN);
+    return persisted ?? _memoryRefreshToken;
   },
 
-  /**
-   * Delete all stored auth tokens and reset memory slot.
-   * Called on logout and on refresh failure (force-logout).
-   */
   async clearTokens(): Promise<void> {
     return tokenStorage.clear();
   },
 
   async clear(): Promise<void> {
     setAccessToken(null);
+    _memoryAccessToken = null;
+    await storageDelete(KEYS.REFRESH_TOKEN);
+    await storageDelete(KEYS.LEGACY_ACCESS_TOKEN);
     _memoryRefreshToken = null;
     // Attempt both deletions even when one fails; never leave memory signed in.
     const results = await Promise.allSettled([

@@ -43,6 +43,7 @@ export default function WasteCategoryScreen({ onSelect }: Props) {
     );
   }
 
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What are you recycling?</Text>

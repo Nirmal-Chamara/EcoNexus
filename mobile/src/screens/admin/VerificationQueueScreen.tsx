@@ -2,37 +2,31 @@
  * VerificationQueueScreen.tsx
  *
  * Admin screen: paginated list of verification requests (PENDING / APPROVED / REJECTED).
- *
- * Features:
- *  • Status filter tabs: ALL | PENDING | APPROVED | REJECTED
- *  • Pull-to-refresh
- *  • Infinite scroll
- *  • Skeleton shimmer while loading
- *  • Pending count badge on PENDING tab
- *  • Tap to navigate → VerificationDetailScreen
+ * Enhanced with the EcoNexus Admin light theme.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   FlatList,
   ListRenderItem,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import EcoNexusLogo from '../../components/common/EcoNexusLogo';
 import { adminService } from '../../services/admin.service';
 import type { VerificationRequest, VerificationStatus } from '../../services/admin.service';
 import type { AdminVerificationsStackParamList } from '../../navigation/AdminStackNavigator';
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
 import type { UserRole } from '../../types/user';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -40,7 +34,7 @@ import type { UserRole } from '../../types/user';
 type NavProp = NativeStackNavigationProp<AdminVerificationsStackParamList, 'VerificationQueue'>;
 
 const STATUS_TABS: Array<{ label: string; value: VerificationStatus | '' }> = [
-  { label: 'All', value: '' },
+  { label: 'All Requests', value: '' },
   { label: 'Pending', value: 'PENDING' },
   { label: 'Approved', value: 'APPROVED' },
   { label: 'Rejected', value: 'REJECTED' },
@@ -48,62 +42,45 @@ const STATUS_TABS: Array<{ label: string; value: VerificationStatus | '' }> = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getVerificationStatusColor(status: VerificationStatus): string {
+function getStatusStyle(status: VerificationStatus): { bg: string; text: string; dot: string } {
   switch (status) {
     case 'PENDING':
-      return colors.warning;
+      return { bg: '#FEF3C7', text: '#B45309', dot: '#F59E0B' };
     case 'APPROVED':
-      return colors.success;
+      return { bg: '#DCFCE7', text: '#15803D', dot: '#10B981' };
     case 'REJECTED':
-      return colors.error;
+      return { bg: '#FEE2E2', text: '#B91C1C', dot: '#EF4444' };
     default:
-      return colors.textMuted;
+      return { bg: '#F1F5F9', text: '#64748B', dot: '#94A3B8' };
   }
 }
 
 function getRoleLabel(role: UserRole): string {
   switch (role) {
     case 'COLLECTOR':
-      return 'Waste Collector';
+      return 'Hauler / Collector';
     case 'RECYCLING_CENTER':
-      return 'Recycling Center';
+      return 'Recycling Facility';
     default:
       return role;
   }
 }
 
-function getRoleColor(role: UserRole): string {
-  switch (role) {
-    case 'COLLECTOR':
-      return colors.roleCollector;
-    case 'RECYCLING_CENTER':
-      return colors.roleCenter;
-    default:
-      return colors.textMuted;
-  }
+function getRolePill(role: UserRole): { bg: string; text: string } {
+  if (role === 'COLLECTOR') return { bg: '#FEF3C7', text: '#D97706' };
+  if (role === 'RECYCLING_CENTER') return { bg: '#F3E8FF', text: '#7E22CE' };
+  return { bg: '#E0F2FE', text: '#0284C7' };
 }
 
-function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
-function timeAgo(iso: string): string {
-  try {
-    const diff = Date.now() - new Date(iso).getTime();
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor(diff / 60000);
-    if (d > 0) return `${d}d ago`;
-    if (h > 0) return `${h}h ago`;
-    return `${m}m ago`;
-  } catch {
-    return '';
-  }
+function timeAgo(dateString: string): string {
+  const diff = Date.now() - new Date(dateString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 // ─── VerificationCard ─────────────────────────────────────────────────────────
@@ -114,34 +91,31 @@ interface VerificationCardProps {
 }
 
 function VerificationCard({ item, onPress }: VerificationCardProps) {
-  const statusColor = getVerificationStatusColor(item.status);
-  const roleColor = getRoleColor(item.requested_role);
-  const initials = getInitials(item.user_name);
+  const statusStyle = getStatusStyle(item.status);
+  const roleStyle = getRolePill(item.requested_role);
+
+  const initials = (item.user_name || 'Applicant')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
 
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
-      activeOpacity={0.75}
-      testID={`verification-card-${item.id}`}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`Verification request for ${item.user_name}`}
     >
-      {/* Left accent bar */}
-      <View style={[styles.cardAccent, { backgroundColor: statusColor }]} />
-
       <View style={styles.cardBody}>
         {/* Header row */}
         <View style={styles.cardHeader}>
-          {/* Avatar */}
-          <View
-            style={[
-              styles.cardAvatar,
-              { backgroundColor: roleColor + '22', borderColor: roleColor },
-            ]}
-          >
-            <Text style={[styles.cardAvatarText, { color: roleColor }]}>{initials}</Text>
+          <View style={[styles.cardAvatar, { backgroundColor: roleStyle.bg }]}>
+            <Text style={[styles.cardAvatarText, { color: roleStyle.text }]}>{initials}</Text>
           </View>
 
-          {/* Name + Email */}
           <View style={styles.cardMeta}>
             <Text style={styles.cardName} numberOfLines={1}>
               {item.user_name}
@@ -151,46 +125,45 @@ function VerificationCard({ item, onPress }: VerificationCardProps) {
             </Text>
           </View>
 
-          {/* Status badge */}
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: statusColor + '22', borderColor: statusColor },
-            ]}
-          >
-            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[styles.statusText, { color: statusColor }]}>{item.status}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+            <View style={[styles.statusDot, { backgroundColor: statusStyle.dot }]} />
+            <Text style={[styles.statusText, { color: statusStyle.text }]}>{item.status}</Text>
           </View>
         </View>
 
-        {/* Role + Org */}
+        {/* Role + Organization */}
         <View style={styles.cardDetails}>
-          <View
-            style={[styles.rolePill, { backgroundColor: roleColor + '22', borderColor: roleColor }]}
-          >
-            <Text style={[styles.rolePillText, { color: roleColor }]}>
+          <View style={[styles.rolePill, { backgroundColor: roleStyle.bg }]}>
+            <Text style={[styles.rolePillText, { color: roleStyle.text }]}>
               {getRoleLabel(item.requested_role)}
             </Text>
           </View>
           {item.organization_name ? (
             <Text style={styles.orgText} numberOfLines={1}>
-              🏢 {item.organization_name}
+              {item.organization_name}
             </Text>
           ) : null}
         </View>
 
-        {/* Footer */}
+        {/* Footer info */}
         <View style={styles.cardFooter}>
-          <Text style={styles.timeText}>🕐 {timeAgo(item.created_at)}</Text>
+          <View style={styles.timeTag}>
+            <Ionicons name="time-outline" size={13} color="#64748B" style={{ marginRight: 3 }} />
+            <Text style={styles.timeText}>{timeAgo(item.created_at)}</Text>
+          </View>
+
           {item.document_url ? (
-            <Text style={styles.docTag}>📄 Document attached</Text>
+            <View style={styles.docTagWrapper}>
+              <Ionicons name="document-attach-outline" size={13} color="#059669" style={{ marginRight: 3 }} />
+              <Text style={styles.docTag}>Document Attached</Text>
+            </View>
           ) : (
             <Text style={styles.noDocTag}>No document</Text>
           )}
         </View>
       </View>
 
-      <Text style={styles.chevron}>›</Text>
+      <Ionicons name="chevron-forward" size={18} color="#94A3B8" style={{ alignSelf: 'center', marginRight: 12 }} />
     </TouchableOpacity>
   );
 }
@@ -206,26 +179,18 @@ interface StatusTabProps {
 }
 
 function StatusTab({ label, value, active, pendingCount, onPress }: StatusTabProps) {
-  const activeColor =
-    value === 'PENDING'
-      ? colors.warning
-      : value === 'APPROVED'
-        ? colors.success
-        : value === 'REJECTED'
-          ? colors.error
-          : colors.roleAdmin;
   return (
     <TouchableOpacity
-      style={[styles.tab, active && { borderBottomWidth: 2, borderBottomColor: activeColor }]}
+      style={[styles.tab, active && styles.tabActive]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={[styles.tabText, active && { color: activeColor }]}>{label}</Text>
-      {value === 'PENDING' && pendingCount != null && pendingCount > 0 && (
+      <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
+      {value === 'PENDING' && typeof pendingCount === 'number' && pendingCount > 0 ? (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{pendingCount > 99 ? '99+' : pendingCount}</Text>
         </View>
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -237,19 +202,19 @@ const PAGE_SIZE = 20;
 export default function VerificationQueueScreen() {
   const navigation = useNavigation<NavProp>();
 
+  const [activeTab, setActiveTab] = useState<VerificationStatus | ''>('PENDING');
   const [items, setItems] = useState<VerificationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState<number | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<VerificationStatus | ''>('PENDING');
 
   const pageRef = useRef(1);
   const totalPagesRef = useRef(1);
   const hasFocusedRef = useRef(false);
 
-  // Shimmer
+  // ── Skeleton Shimmer Animation ─────────────────────────────────────────────
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
@@ -260,33 +225,46 @@ export default function VerificationQueueScreen() {
         useNativeDriver: true,
       })
     ).start();
+  }, [shimmerAnim]);
+
+  // ── Fetch Pending Count (badge) ───────────────────────────────────────────
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await adminService.getVerifications({ status: 'PENDING', page: 1, limit: 1 });
+      setPendingCount(res.meta.total);
+    } catch {
+      // Non-fatal — badge remains undefined
+    }
   }, []);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch Page ─────────────────────────────────────────────────────────────
   const fetchItems = useCallback(
-    async (page: number, isRefresh = false) => {
+    async (page = 1, append = false) => {
       try {
-        if (page === 1) isRefresh ? setRefreshing(true) : setLoading(true);
-        else setLoadingMore(true);
+        if (!append) setLoading(true);
         setError(null);
 
-        const res = await adminService.getVerifications({
-          status: activeTab || undefined,
+        const response = await adminService.getVerifications({
+          status: activeTab,
           page,
           limit: PAGE_SIZE,
         });
 
-        totalPagesRef.current = res.meta.totalPages;
-        setItems((prev) => (page === 1 ? res.data : [...prev, ...res.data]));
-        pageRef.current = page;
+        pageRef.current = Number(response.meta.page);
+        totalPagesRef.current = Number(response.meta.totalPages);
 
-        // Keep the pending badge current after returning from a detail screen.
-        if (page === 1) {
-          const pendingRes = await adminService.getVerifications({ status: 'PENDING', limit: 1 });
-          setPendingCount(pendingRes.meta.total);
+        if (append) {
+          setItems((prev) => [...prev, ...response.data]);
+        } else {
+          setItems(response.data);
+        }
+
+        if (activeTab === 'PENDING') {
+          setPendingCount(response.meta.total);
         }
       } catch (err: any) {
-        setError(err?.response?.data?.message ?? 'Failed to load verifications.');
+        const msg = err.response?.data?.message || err.message || 'Failed to load verifications';
+        setError(msg);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -296,99 +274,66 @@ export default function VerificationQueueScreen() {
     [activeTab]
   );
 
-  useEffect(() => {
-    pageRef.current = 1;
-    fetchItems(1);
-  }, [fetchItems]);
-
+  // Focus effect: re-fetch on screen focus
   useFocusEffect(
     useCallback(() => {
       if (hasFocusedRef.current) {
-        pageRef.current = 1;
-        void fetchItems(1, true);
+        fetchItems(1, false);
+        fetchPendingCount();
+      } else {
+        hasFocusedRef.current = true;
       }
-      hasFocusedRef.current = true;
-      return undefined;
-    }, [fetchItems])
+    }, [fetchItems, fetchPendingCount])
   );
 
-  const handleRefresh = useCallback(() => {
+  // Tab switch effect
+  useEffect(() => {
     pageRef.current = 1;
-    fetchItems(1, true);
-  }, [fetchItems]);
-  const handleLoadMore = useCallback(() => {
-    if (loadingMore || pageRef.current >= totalPagesRef.current) return;
-    fetchItems(pageRef.current + 1);
-  }, [loadingMore, fetchItems]);
+    fetchItems(1, false);
+    fetchPendingCount();
+  }, [fetchItems, fetchPendingCount]);
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
-  const renderItem: ListRenderItem<VerificationRequest> = useCallback(
-    ({ item }) => (
-      <VerificationCard
-        item={item}
-        onPress={() => navigation.navigate('VerificationDetail', { verification: item })}
-      />
-    ),
-    [navigation]
+  const handleRefresh = () => {
+    setRefreshing(true);
+    pageRef.current = 1;
+    fetchItems(1, false);
+    fetchPendingCount();
+  };
+
+  const handleLoadMore = () => {
+    if (loadingMore || loading || refreshing) return;
+    if (pageRef.current >= totalPagesRef.current) return;
+    setLoadingMore(true);
+    fetchItems(pageRef.current + 1, true);
+  };
+
+  const handleSelect = (verification: VerificationRequest) => {
+    navigation.navigate('VerificationDetail', { verification });
+  };
+
+  const renderItem: ListRenderItem<VerificationRequest> = ({ item }) => (
+    <VerificationCard item={item} onPress={() => handleSelect(item)} />
   );
-
-  const keyExtractor = (item: VerificationRequest) => item.id;
-
-  const shimmerOpacity = shimmerAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.3, 0.7, 0.3],
-  });
-
-  const renderSkeleton = () => (
-    <View style={styles.skeletonContainer}>
-      {[...Array(5)].map((_, i) => (
-        <Animated.View key={i} style={[styles.skeletonCard, { opacity: shimmerOpacity }]}>
-          <View style={styles.skeletonAccent} />
-          <View style={styles.skeletonBody}>
-            <View style={styles.skeletonAvatar} />
-            <View style={styles.skeletonLines}>
-              <View style={[styles.skeletonLine, { width: '55%' }]} />
-              <View style={[styles.skeletonLine, { width: '38%', marginTop: 6 }]} />
-            </View>
-          </View>
-        </Animated.View>
-      ))}
-    </View>
-  );
-
-  const renderEmpty = () =>
-    !loading ? (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyEmoji}>{activeTab === 'PENDING' ? '🎉' : '📭'}</Text>
-        <Text style={styles.emptyTitle}>
-          {activeTab === 'PENDING' ? 'Queue is clear!' : 'No requests found'}
-        </Text>
-        <Text style={styles.emptyText}>
-          {activeTab === 'PENDING'
-            ? 'There are no pending verification requests right now.'
-            : 'No verification requests match the selected filter.'}
-        </Text>
-      </View>
-    ) : null;
-
-  const renderFooter = () =>
-    loadingMore ? (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator color={colors.roleAdmin} size="small" />
-      </View>
-    ) : null;
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.screen}>
-      {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* ── 1. Top Header ────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Verifications</Text>
-        <Text style={styles.headerSubtitle}>Review role upgrade requests</Text>
+        <View style={styles.headerLeft}>
+          <EcoNexusLogo size="sm" containerStyle={styles.logoContainer} />
+          <View>
+            <Text style={styles.brandTitle}>ECONEXUS</Text>
+            <Text style={styles.brandSubtitle}>Verifications & Alerts Queue</Text>
+          </View>
+        </View>
+
+        <View style={styles.adminBadge}>
+          <View style={styles.adminBadgeDot} />
+          <Text style={styles.adminBadgeText}>ADMIN PORTAL</Text>
+        </View>
       </View>
 
-      {/* ── Status Tabs ─────────────────────────────────────────────────── */}
+      {/* ── 2. Status Tabs ─────────────────────────────────────────── */}
       <View style={styles.tabBar}>
         {STATUS_TABS.map((t) => (
           <StatusTab
@@ -402,45 +347,62 @@ export default function VerificationQueueScreen() {
         ))}
       </View>
 
-      {/* ── Error Banner ─────────────────────────────────────────────────── */}
-      {error ? (
+      {/* ── 3. Error Banner ──────────────────────────────────────────── */}
+      {error && (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>⚠️ {error}</Text>
-          <TouchableOpacity onPress={() => fetchItems(1)} testID="retry-btn">
+          <Ionicons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 6 }} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity onPress={() => fetchItems(1)}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : null}
+      )}
 
-      {/* ── List ─────────────────────────────────────────────────────────── */}
+      {/* ── 4. Main List ─────────────────────────────────────────────── */}
       {loading ? (
-        renderSkeleton()
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#059669" />
+          <Text style={styles.loadingText}>Loading queue records...</Text>
+        </View>
+      ) : items.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name={activeTab === 'PENDING' ? 'checkmark-circle-outline' : 'folder-open-outline'}
+            size={52}
+            color="#059669"
+          />
+          <Text style={styles.emptyTitle}>
+            {activeTab === 'PENDING' ? 'Verification Queue is Clear!' : 'No Requests Found'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {activeTab === 'PENDING'
+              ? 'All applicant requests have been reviewed and processed.'
+              : 'No verification records match the selected status filter.'}
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={items}
-          keyExtractor={keyExtractor}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          removeClippedSubviews
-          initialNumToRender={12}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          windowSize={11}
-          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
-          ListEmptyComponent={renderEmpty}
-          ListFooterComponent={renderFooter}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color="#059669" />
+              </View>
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={colors.roleAdmin}
-              colors={[colors.roleAdmin]}
+              tintColor="#059669"
+              colors={['#059669']}
             />
           }
-          testID="verification-list"
         />
       )}
     </View>
@@ -450,36 +412,101 @@ export default function VerificationQueueScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: {
+    flex: 1,
+    backgroundColor: '#F8FAF9',
+  },
 
   // Header
   header: {
-    paddingHorizontal: 24,
-    paddingTop: 56,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAF9',
   },
-  headerTitle: { ...typography.h1, color: colors.textPrimary },
-  headerSubtitle: { ...typography.label, color: colors.textMuted, marginTop: 2 },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    marginRight: 8,
+  },
+  brandTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#064E3B',
+    letterSpacing: 0.5,
+  },
+  brandSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  adminBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 5,
+  },
+  adminBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#047857',
+    letterSpacing: 0.5,
+  },
 
   // Tabs
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 16,
+    marginTop: 12,
     marginBottom: 12,
+    borderRadius: 12,
+    padding: 3,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 9,
+    gap: 4,
   },
-  tabText: { ...typography.label, color: colors.textMuted, fontWeight: '600' },
+  tabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  tabText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#064E3B',
+    fontWeight: '700',
+  },
   badge: {
-    backgroundColor: colors.warning,
-    borderRadius: 10,
+    backgroundColor: '#EF4444',
+    borderRadius: 9,
     minWidth: 18,
     height: 18,
     alignItems: 'center',
@@ -487,58 +514,92 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    ...typography.caption,
-    color: colors.textInverse,
+    fontSize: 9,
+    color: '#FFFFFF',
     fontWeight: '700',
-    lineHeight: 14,
   },
 
   // Error
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.errorSurface,
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: colors.error + '44',
-    marginHorizontal: 24,
+    borderColor: '#FECACA',
+    marginHorizontal: 16,
     marginBottom: 10,
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  errorText: { ...typography.label, color: colors.error, flex: 1 },
-  retryText: { ...typography.label, color: colors.roleAdmin, marginLeft: 12 },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    flex: 1,
+  },
+  retryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+    marginLeft: 10,
+  },
 
   // List
-  listContent: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 4 },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 4,
+  },
 
   // Card
   card: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-    overflow: 'hidden',
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 10,
+    shadowColor: '#000000',
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
   },
-  cardAccent: { width: 4 },
-  cardBody: { flex: 1, padding: 14 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  cardBody: {
+    flex: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   cardAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
-  cardAvatarText: { fontSize: 14, fontWeight: '700' },
-  cardMeta: { flex: 1, minWidth: 0 },
-  cardName: { ...typography.bodyMedium, color: colors.textPrimary },
-  cardEmail: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
+  cardAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  cardMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  cardEmail: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -546,55 +607,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-    borderWidth: 1,
   },
-  statusDot: { width: 5, height: 5, borderRadius: 3 },
-  statusText: { ...typography.caption, fontWeight: '700' },
-  cardDetails: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  rolePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  rolePillText: { ...typography.caption, fontWeight: '600' },
-  orgText: { ...typography.caption, color: colors.textSecondary, flex: 1 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  timeText: { ...typography.caption, color: colors.textMuted },
-  docTag: { ...typography.caption, color: colors.info },
-  noDocTag: { ...typography.caption, color: colors.textMuted },
-  chevron: {
-    fontSize: 20,
-    color: colors.textMuted,
-    alignSelf: 'center',
-    paddingRight: 12,
-    lineHeight: 24,
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
-
-  // Skeleton
-  skeletonContainer: { paddingHorizontal: 24, paddingTop: 4 },
-  skeletonCard: {
+  cardDetails: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 12,
-    overflow: 'hidden',
-    height: 90,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
-  skeletonAccent: { width: 4, backgroundColor: colors.surfaceAlt },
-  skeletonBody: { flex: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  skeletonAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceAlt },
-  skeletonLines: { flex: 1 },
-  skeletonLine: { height: 13, borderRadius: 6, backgroundColor: colors.surfaceAlt },
+  rolePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  rolePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  orgText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '500',
+    flex: 1,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: 10,
+    color: '#64748B',
+  },
+  docTagWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  docTag: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  noDocTag: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
 
-  // Empty
-  emptyContainer: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyEmoji: { fontSize: 52, marginBottom: 12 },
-  emptyTitle: { ...typography.h3, color: colors.textPrimary, marginBottom: 8 },
-  emptyText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
-
-  // Footer
-  footerLoader: { paddingVertical: 16, alignItems: 'center' },
+  // Loading & Empty
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 10,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  footerLoader: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
 });

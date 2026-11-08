@@ -92,14 +92,173 @@ export default function ProfileScreen() {
     );
   };
 
-  const displayName = user?.name || 'Nirmal Sandeepa';
-  const displayEmail = user?.email || 'nirmal.s@econexus.lk';
+  const displayName = user?.name || (user?.role === 'ADMIN' ? 'System Administrator' : 'Nirmal Sandeepa');
+  const displayEmail = user?.email || (user?.role === 'ADMIN' ? 'admin@econexus.com' : 'nirmal.s@econexus.lk');
   const initials = displayName
     .split(' ')
     .map((part) => part[0])
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+  // ── Dedicated Admin Console Profile View ──────────────────────────────────
+  if (user?.role === 'ADMIN') {
+    return (
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#059669" />}
+      >
+        {/* Top Header */}
+        <View style={styles.topHeaderBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={22} color="#111827" />
+          </Pressable>
+          <Text style={styles.topHeaderTitle}>System Admin Console Profile</Text>
+        </View>
+
+        {/* Admin Identity Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileTopRow}>
+            <View style={[styles.avatarSquare, { backgroundColor: '#DCFCE7' }]}>
+              <Text style={[styles.avatarInitials, { color: '#047857' }]}>{initials}</Text>
+              <View style={[styles.verifiedDot, { backgroundColor: '#059669' }]}>
+                <Ionicons name="shield-checkmark" size={10} color="#FFFFFF" />
+              </View>
+            </View>
+
+            <View style={styles.profileTextCol}>
+              <Text style={styles.userName}>{displayName}</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 6 }}>{displayEmail}</Text>
+              <View style={[styles.levelBadge, { backgroundColor: '#DCFCE7' }]}>
+                <Ionicons name="shield" size={12} color="#047857" style={{ marginRight: 4 }} />
+                <Text style={[styles.levelBadgeText, { color: '#047857' }]}>SUPER ADMIN • ROOT ACCESS</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* System Privileges Section */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="key" size={18} color="#059669" style={{ marginRight: 6 }} />
+            <Text style={styles.sectionTitle}>System Privileges & Authority</Text>
+          </View>
+        </View>
+
+        <View style={styles.preferencesCard}>
+          <View style={styles.toggleRow}>
+            <View style={[styles.toggleIconCircle, { backgroundColor: '#DCFCE7' }]}>
+              <Ionicons name="people" size={18} color="#059669" />
+            </View>
+            <View style={styles.toggleTextCol}>
+              <Text style={styles.toggleTitle}>User Directory Governance</Text>
+              <Text style={styles.toggleSubtitle}>Authorize, suspend, or revoke accounts platform-wide</Text>
+            </View>
+            <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>ACTIVE</Text>
+            </View>
+          </View>
+
+          <View style={styles.toggleRow}>
+            <View style={[styles.toggleIconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="shield-checkmark" size={18} color="#D97706" />
+            </View>
+            <View style={styles.toggleTextCol}>
+              <Text style={styles.toggleTitle}>Verification Licensing</Text>
+              <Text style={styles.toggleSubtitle}>Issue official Hauler and Facility operational IDs</Text>
+            </View>
+            <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>ACTIVE</Text>
+            </View>
+          </View>
+
+          <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.toggleIconCircle, { backgroundColor: '#E0F2FE' }]}>
+              <Ionicons name="analytics" size={18} color="#0284C7" />
+            </View>
+            <View style={styles.toggleTextCol}>
+              <Text style={styles.toggleTitle}>Municipal Telemetry & ESG Audits</Text>
+              <Text style={styles.toggleSubtitle}>Signed sustainability reports for CEA compliance</Text>
+            </View>
+            <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#15803D' }}>ACTIVE</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Security & Infrastructure Section */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="lock-closed" size={18} color="#059669" style={{ marginRight: 6 }} />
+            <Text style={styles.sectionTitle}>Security & Infrastructure</Text>
+          </View>
+        </View>
+
+        <View style={styles.preferencesCard}>
+          <View style={styles.toggleRow}>
+            <View style={[styles.toggleIconCircle, { backgroundColor: '#F1F5F9' }]}>
+              <Ionicons name="server-outline" size={18} color="#475569" />
+            </View>
+            <View style={styles.toggleTextCol}>
+              <Text style={styles.toggleTitle}>Database Cluster</Text>
+              <Text style={styles.toggleSubtitle}>AWS Neon PostgreSQL 16 (US-East-2)</Text>
+            </View>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#059669' }}>Connected</Text>
+          </View>
+
+          <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
+            <View style={[styles.toggleIconCircle, { backgroundColor: '#F1F5F9' }]}>
+              <Ionicons name="time-outline" size={18} color="#475569" />
+            </View>
+            <View style={styles.toggleTextCol}>
+              <Text style={styles.toggleTitle}>Session Security</Text>
+              <Text style={styles.toggleSubtitle}>JWT 15m with token family rotation</Text>
+            </View>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#059669' }}>Enforced</Text>
+          </View>
+        </View>
+
+        {/* Account Management & Sign Out */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="settings" size={18} color="#059669" style={{ marginRight: 6 }} />
+            <Text style={styles.sectionTitle}>Admin Controls</Text>
+          </View>
+        </View>
+
+        <View style={styles.menuContainerCard}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log Out"
+            style={styles.menuItemRow}
+            onPress={handleSignOut}
+          >
+            <View style={[styles.menuItemIconBg, { backgroundColor: '#FEE2E2' }]}>
+              <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            </View>
+            <View style={styles.menuItemTextCol}>
+              <Text style={[styles.menuItemTitle, { color: '#DC2626' }]}>Sign Out of Admin Console</Text>
+              <Text style={styles.menuItemSubtitle}>Ends all active sessions on this device</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+          </Pressable>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footerBlock}>
+          <Text style={styles.footerVersion}>EcoNexus Admin Platform v2.4.1 (Clean City Initiative)</Text>
+          <Text style={styles.footerSubtext}>Central Environmental Authority • Sri Lanka</Text>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView
