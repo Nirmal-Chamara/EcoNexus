@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash  TEXT NOT NULL UNIQUE,            -- SHA-256 hash of the raw token string
-  family_id   UUID NOT NULL,                   -- All token rotations within one login session share family_id
+  family_id   VARCHAR(100) NOT NULL,           -- All token rotations within one login session share family_id
+  is_revoked  BOOLEAN NOT NULL DEFAULT false,
   expires_at  TIMESTAMPTZ NOT NULL,
   revoked_at  TIMESTAMPTZ,
   replaced_by UUID,

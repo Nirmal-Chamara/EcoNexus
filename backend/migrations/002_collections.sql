@@ -1,5 +1,7 @@
 -- 002_collections.sql: Collector Profiles and Pickup Management Schema
 
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- 1. Collector Profiles Table
 CREATE TABLE IF NOT EXISTS collector_profiles (
   user_id           UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
