@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -183,6 +184,19 @@ export default function ProfileScreen() {
   }, [signOut]);
 
   const handleSignOut = useCallback(() => {
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined'
+          ? window.confirm('Are you sure you want to sign out?')
+          : true;
+      if (confirmed) {
+        signOut().catch((err) => {
+          console.error('Sign-out error:', err);
+          if (typeof window !== 'undefined') window.alert('Sign-out failed. Please try again.');
+        });
+      }
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
