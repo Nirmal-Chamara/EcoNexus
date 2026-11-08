@@ -15,6 +15,9 @@ import {
   registerSchema,
   loginSchema,
   refreshTokenSchema,
+  googleAuthSchema,
+  resetPasswordRequestSchema,
+  resetPasswordConfirmSchema,
 } from '../validators/auth.validator';
 import {
   changePasswordSchema,
@@ -407,6 +410,92 @@ describe('processVerificationSchema (admin)', () => {
       passes(processVerificationSchema, {
         params: { id: 'bad-id' },
         body: { status: 'APPROVED' },
+      })
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// googleAuthSchema
+// ---------------------------------------------------------------------------
+
+describe('googleAuthSchema', () => {
+  it('accepts valid google auth payload with default role', () => {
+    expect(
+      passes(googleAuthSchema, {
+        body: { idToken: 'valid-google-id-token-abc' },
+      })
+    ).toBe(true);
+  });
+
+  it('accepts valid google auth payload with explicit role', () => {
+    expect(
+      passes(googleAuthSchema, {
+        body: { idToken: 'valid-google-id-token-abc', role: 'COLLECTOR' },
+      })
+    ).toBe(true);
+  });
+
+  it('rejects payload missing idToken', () => {
+    expect(
+      passes(googleAuthSchema, {
+        body: {},
+      })
+    ).toBe(false);
+  });
+
+  it('rejects payload with invalid role', () => {
+    expect(
+      passes(googleAuthSchema, {
+        body: { idToken: 'token', role: 'SUPERUSER' },
+      })
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resetPasswordRequestSchema & resetPasswordConfirmSchema
+// ---------------------------------------------------------------------------
+
+describe('resetPasswordRequestSchema', () => {
+  it('accepts valid email', () => {
+    expect(
+      passes(resetPasswordRequestSchema, {
+        body: { email: 'user@example.com' },
+      })
+    ).toBe(true);
+  });
+
+  it('rejects invalid email', () => {
+    expect(
+      passes(resetPasswordRequestSchema, {
+        body: { email: 'not-an-email' },
+      })
+    ).toBe(false);
+  });
+});
+
+describe('resetPasswordConfirmSchema', () => {
+  it('accepts valid token and strong new password', () => {
+    expect(
+      passes(resetPasswordConfirmSchema, {
+        body: { token: 'reset-token-123', newPassword: 'ValidPassword123' },
+      })
+    ).toBe(true);
+  });
+
+  it('rejects weak new password', () => {
+    expect(
+      passes(resetPasswordConfirmSchema, {
+        body: { token: 'reset-token-123', newPassword: 'weak' },
+      })
+    ).toBe(false);
+  });
+
+  it('rejects missing token', () => {
+    expect(
+      passes(resetPasswordConfirmSchema, {
+        body: { newPassword: 'ValidPassword123' },
       })
     ).toBe(false);
   });
