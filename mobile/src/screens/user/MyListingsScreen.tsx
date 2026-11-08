@@ -1,17 +1,3 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-
-export default function MyListingsScreen() {
-  return (
-    <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <Ionicons name="receipt-outline" size={44} color="#0D9488" />
-      </View>
-      <Text style={styles.title}>Activity &amp; History</Text>
-      <Text style={styles.subtitle}>
-        Track your active pickups, collection receipts, verified weights, and earned EcoPoints history.
-      </Text>
 import { useCallback, useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl,
@@ -23,7 +9,9 @@ import { getMyListings } from "../../services/waste.service";
 import { WasteListing } from "../../types/waste";
 
 type Scope = "active" | "history";
-type Props = NativeStackScreenProps<WasteStackParamList, "MyListings">;
+type Props = Partial<NativeStackScreenProps<WasteStackParamList, "MyListings">> & {
+  navigation?: any;
+};
 
 export default function MyListingsScreen({ navigation }: Props) {
   const [scope, setScope] = useState<Scope>("active");
@@ -112,36 +100,6 @@ export default function MyListingsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAF9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#CCFBF1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
-
   container: { flex: 1, padding: 16, backgroundColor: "#faf8f2" },
   tabs: { flexDirection: "row", marginBottom: 12 },
   tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#e9e6d8", marginRight: 8 },

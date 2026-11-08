@@ -1,8 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert, Animated, Easing, StyleSheet } from 'react-native';
-// RootNavigator.tsx
-import React from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Animated, Easing, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import AuthNavigator from './AuthNavigator';
