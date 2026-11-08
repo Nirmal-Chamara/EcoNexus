@@ -23,6 +23,7 @@ import {
   View,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -242,24 +243,34 @@ export default function UserDetailScreen() {
     (newStatus: AccountStatus, confirmMessage: string, reason?: string) => {
       if (user.status === newStatus) return;
 
+      const executeAction = async () => {
+        try {
+          setLoadingAction(newStatus);
+          setError(null);
+          const res = await adminService.updateUserStatus(user.id, newStatus, reason);
+          // Merge updated fields (backend returns id, name, email, status, role)
+          setUser((prev) => ({ ...prev, ...res.data, status: newStatus }));
+        } catch (error: unknown) {
+          setError(mapApiError(error, 'Action failed. Please try again.'));
+        } finally {
+          setLoadingAction(null);
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = typeof window !== 'undefined' ? window.confirm(`Confirm Action:\n\n${confirmMessage}`) : true;
+        if (confirmed) {
+          void executeAction();
+        }
+        return;
+      }
+
       Alert.alert('Confirm Action', confirmMessage, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
           style: newStatus === 'ACTIVE' ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              setLoadingAction(newStatus);
-              setError(null);
-              const res = await adminService.updateUserStatus(user.id, newStatus, reason);
-              // Merge updated fields (backend returns id, name, email, status, role)
-              setUser((prev) => ({ ...prev, ...res.data, status: newStatus }));
-            } catch (error: unknown) {
-              setError(mapApiError(error, 'Action failed. Please try again.'));
-            } finally {
-              setLoadingAction(null);
-            }
-          },
+          onPress: executeAction,
         },
       ]);
     },

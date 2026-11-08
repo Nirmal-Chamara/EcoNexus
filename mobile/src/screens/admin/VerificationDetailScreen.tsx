@@ -24,6 +24,7 @@ import {
   View,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -177,6 +178,41 @@ export default function VerificationDetailScreen() {
       const emoji = decision === 'APPROVED' ? '✅' : '❌';
       const style = decision === 'APPROVED' ? 'default' : 'destructive';
 
+      const executeDecision = async () => {
+        try {
+          setSubmitting(decision);
+          setError(null);
+          await adminService.processVerification(item.id, {
+            status: decision,
+            review_note: reviewNote.trim() || undefined,
+          });
+          // Update local state
+          setItem((prev) => ({ ...prev, status: decision }));
+          setSuccessMessage(
+            decision === 'APPROVED'
+              ? 'Verification approved successfully.'
+              : 'Verification rejected successfully.'
+          );
+          navigationTimer.current = setTimeout(() => navigation.goBack(), 1200);
+        } catch (error: unknown) {
+          setError(mapApiError(error, `Failed to ${verb} request.`));
+        } finally {
+          setSubmitting(null);
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmMsg =
+          decision === 'APPROVED'
+            ? `Are you sure you want to approve this verification request?\n\nApproving will grant ${item.user_name} the ${getRoleLabel(item.requested_role)} role and activate their account.`
+            : `Are you sure you want to reject this request?\n\nReason: "${reviewNote.trim()}"`;
+        const confirmed = typeof window !== 'undefined' ? window.confirm(confirmMsg) : true;
+        if (confirmed) {
+          void executeDecision();
+        }
+        return;
+      }
+
       Alert.alert(
         `${emoji} ${decision === 'APPROVED' ? 'Approve' : 'Reject'} Request`,
         decision === 'APPROVED'
@@ -187,28 +223,7 @@ export default function VerificationDetailScreen() {
           {
             text: decision === 'APPROVED' ? 'Approve' : 'Reject',
             style,
-            onPress: async () => {
-              try {
-                setSubmitting(decision);
-                setError(null);
-                await adminService.processVerification(item.id, {
-                  status: decision,
-                  review_note: reviewNote.trim() || undefined,
-                });
-                // Update local state
-                setItem((prev) => ({ ...prev, status: decision }));
-                setSuccessMessage(
-                  decision === 'APPROVED'
-                    ? 'Verification approved successfully.'
-                    : 'Verification rejected successfully.'
-                );
-                navigationTimer.current = setTimeout(() => navigation.goBack(), 1200);
-              } catch (error: unknown) {
-                setError(mapApiError(error, `Failed to ${verb} request.`));
-              } finally {
-                setSubmitting(null);
-              }
-            },
+            onPress: executeDecision,
           },
         ]
       );

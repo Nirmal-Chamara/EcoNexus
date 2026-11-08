@@ -15,6 +15,7 @@ const router = Router();
 // All routes require ADMIN role and active status
 router.use(authenticate, requireActive, authorize('ADMIN'));
 
+router.get('/dashboard', AdminController.getDashboardMetrics);
 router.get('/users', validateRequest(userQuerySchema), AdminController.getUsers);
 router.get('/users/:id', validateRequest(adminUserIdSchema), AdminController.getUserById);
 router.patch('/users/:id/status', validateRequest(updateUserStatusSchema), AdminController.updateUserStatus);

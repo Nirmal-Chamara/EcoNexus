@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
@@ -11,8 +12,7 @@ import { RequestsStackNavigator } from './CollectorStackNavigator';
 import CollectionHistoryScreen from '../screens/collector/CollectionHistoryScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
-import { colors } from '../theme/colors';
-import { roleTabScreenOptions, TabIcon } from './tabBar';
+import { TabIcon } from './tabBar';
 
 export type CollectorTabParamList = {
   Dashboard: undefined;
@@ -59,6 +59,14 @@ const Tab = createBottomTabNavigator<CollectorTabParamList>();
 
 export default function CollectorNavigator() {
   return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: '#059669',
+        tabBarInactiveTintColor: '#6B7280',
+        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarHideOnKeyboard: true,
     <Tab.Navigator screenOptions={roleTabScreenOptions(colors.roleCollector)}>
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
@@ -94,9 +102,9 @@ export default function CollectorNavigator() {
         name="Dashboard"
         component={CollectorHomeStackNavigator}
         options={{
-          tabBarLabel: 'Dashboard',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="home-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'home' : 'home-outline'} focused={focused} color={color} size={size} />
           ),
           tabBarLabel: 'Home',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
@@ -111,24 +119,26 @@ export default function CollectorNavigator() {
         }}
       />
       <Tab.Screen
+        name="ServiceArea"
+        component={ServiceAreaScreen}
         name="HistoryTab"
         component={CollectionHistoryScreen}
         options={{
-          tabBarLabel: 'Requests',
+          tabBarLabel: 'Map',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="clipboard-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'map' : 'map-outline'} focused={focused} color={color} size={size} />
           ),
           tabBarLabel: 'History',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🕒" focused={focused} />,
         }}
       />
       <Tab.Screen
-        name="ServiceArea"
-        component={ServiceAreaScreen}
+        name="Requests"
+        component={RequestsScreen}
         options={{
-          tabBarLabel: 'Area',
+          tabBarLabel: 'Collect',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="map-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'car' : 'car-outline'} focused={focused} color={color} size={size} />
           ),
           tabBarLabel: 'Map',
           tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
@@ -138,9 +148,9 @@ export default function CollectorNavigator() {
         name="ProfileTab"
         component={ProfileStackNavigator}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Hub',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon="person-outline" focused={focused} color={color} size={size} />
+            <TabIcon icon={focused ? 'business' : 'business-outline'} focused={focused} color={color} size={size} />
           ),
           tabBarLabel: 'Hub',
           tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
@@ -149,3 +159,24 @@ export default function CollectorNavigator() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopColor: '#E5E7EB',
+    borderTopWidth: 1,
+    height: 64,
+    paddingTop: 6,
+    paddingBottom: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+});
