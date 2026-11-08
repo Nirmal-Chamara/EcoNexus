@@ -68,9 +68,89 @@ export interface ProcessVerificationInput {
   review_note?: string;
 }
 
+// ─── Dashboard Metrics Types ──────────────────────────────────────────────────
+
+export interface AdminDashboardNotice {
+  title: string;
+  message: string;
+  severity: 'info' | 'warning' | 'alert';
+  active: boolean;
+}
+
+export interface AdminDashboardMetricsData {
+  totalDivertedTons: number;
+  divertedGrowthMoM: string;
+  haulerCount: number;
+  onDutyHaulers: number;
+  centerCount: number;
+  centersNearingCapacity: number;
+  ecoPointsIssued: string;
+  ecoPointsRedeemedValue: string;
+}
+
+export interface PriorityVerificationItem {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  requestedRole: UserRole;
+  organizationName: string;
+  vehicleInfo?: string;
+  status: VerificationStatus;
+  createdAt: string;
+  documentUrl?: string;
+  documents?: string[];
+}
+
+export interface MaterialVolumeFlowItem {
+  category: string;
+  percentage: number;
+  weightTons: number;
+  color: string;
+}
+
+export interface SectorClusterItem {
+  name: string;
+  status: 'Normal' | 'Heavy' | 'Bottleneck';
+  efficiency: number;
+  pickupsRate: string;
+  color: string;
+}
+
+export interface SystemVitalityMetrics {
+  activeFleetTotal: number;
+  complianceRate: number;
+  avgSlaHours: number;
+}
+
+export interface AdminDashboardData {
+  notice: AdminDashboardNotice;
+  metrics: AdminDashboardMetricsData;
+  pendingVerificationsCount: number;
+  priorityVerifications: PriorityVerificationItem[];
+  materialVolumeFlow: MaterialVolumeFlowItem[];
+  sectorClusters: SectorClusterItem[];
+  systemVitality: SystemVitalityMetrics;
+}
+
+export interface AdminDashboardResponse {
+  message: string;
+  data: AdminDashboardData;
+}
+
 // ─── Admin Service ──────────────────────────────────────────────────────────────
 
 export const adminService = {
+  /**
+   * GET /api/admin/dashboard
+   * Consolidated statistics, pending verifications, material volume flow, and sector clusters.
+   */
+  async getDashboardMetrics(): Promise<AdminDashboardResponse> {
+    const response = await apiClient.get<AdminDashboardResponse>('/admin/dashboard');
+    return response.data;
+  },
+
   /**
    * GET /api/admin/users
    * Fetch paginated, filterable user list.
