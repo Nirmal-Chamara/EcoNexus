@@ -43,7 +43,6 @@ function getRedirectUri(): string {
   }
   return AuthSession.makeRedirectUri({
     scheme: 'econexus',
-    preferLocalEndpoint: false,
   });
 }
 
@@ -87,6 +86,7 @@ export function useGoogleAuth(): UseGoogleAuthResult {
               ],
               responseType: AuthSession.ResponseType.IdToken,
               redirectUri,
+              usePKCE: false,
               extraParams: {
                 nonce,
               },
