@@ -168,6 +168,285 @@ export default function CollectorDashboardScreen({ navigation }: Props) {
             <Text style={styles.statLabel}>Earnings</Text>
             <Text style={styles.statValue}>$85.50</Text>
             <Text style={[styles.statSub, { color: '#D97706' }]}>• 480 pts</Text>
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Linking,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
+import { collectorService } from '../../services/collector.service';
+import { pickupService } from '../../services/pickup.service';
+import { CollectorProfile, PickupRequest } from '../../types/collector';
+import * as Location from 'expo-location';
+
+const { width } = Dimensions.get('window');
+
+type TabType = 'ASSIGNED' | 'NEARBY' | 'COMPLETED';
+
+export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+
+  const [profile, setProfile] = useState<CollectorProfile | null>(null);
+  const [assignedPickups, setAssignedPickups] = useState<PickupRequest[]>([]);
+  const [nearbyPickups, setNearbyPickups] = useState<PickupRequest[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('ASSIGNED');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [profileData, pickupsData] = await Promise.all([
+        collectorService.getProfile().catch(() => null),
+        collectorService.getAssignedPickups().catch(() => []),
+      ]);
+
+      setProfile(profileData);
+      setAssignedPickups(pickupsData || []);
+
+      // Also fetch nearby requests
+      let lat = 6.9271;
+      let lng = 79.8612;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
+      } catch {
+        // Fallback coords
+      }
+
+      const nearby = await pickupService.getNearbyPickups(lat, lng, 10000).catch(() => []);
+      setNearbyPickups(nearby || []);
+    } catch {
+      // Handled gracefully
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const handleToggleOnline = async () => {
+    if (!profile) return;
+    const newStatus = !profile.is_available;
+    try {
+      setProfile((prev) => (prev ? { ...prev, is_available: newStatus } : null));
+      await collectorService.updateProfile({ isAvailable: newStatus });
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update online status.');
+      setProfile((prev) => (prev ? { ...prev, is_available: !newStatus } : null));
+    }
+  };
+
+  const handleLaunchGPS = (item: PickupRequest) => {
+    const lat = Number(item.latitude) || 6.9271;
+    const lng = Number(item.longitude) || 79.8612;
+    const label = encodeURIComponent(item.address_text || 'Pickup Location');
+
+    const url =
+      Platform.select({
+        ios: `maps:0,0?q=${label}@${lat},${lng}`,
+        android: `geo:0,0?q=${lat},${lng}(${label})`,
+      }) || `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+    });
+  };
+
+  const handleCallCustomer = (phone?: string) => {
+    if (phone) {
+      Linking.openURL(`tel:${phone}`);
+    } else {
+      Alert.alert('Contact', 'No phone number provided for this customer.');
+    }
+  };
+
+  const handleAdvancePickup = async (pickupId: string, nextStatus: 'IN_TRANSIT' | 'COMPLETED') => {
+    const actionName = nextStatus === 'IN_TRANSIT' ? 'Start Trip' : 'Complete Collection';
+    Alert.alert(actionName, `Mark this pickup as ${nextStatus.replace('_', ' ')}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          try {
+            setIsUpdatingStatus(true);
+            await pickupService.updatePickupStatus(pickupId, nextStatus);
+            Alert.alert('Success', `Pickup updated to ${nextStatus.replace('_', ' ')}.`);
+            loadData();
+          } catch (e: any) {
+            Alert.alert('Error', e?.message || 'Failed to update status.');
+          } finally {
+            setIsUpdatingStatus(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleClaimPickup = async (request: PickupRequest) => {
+    try {
+      setClaimingId(request.id);
+      await pickupService.acceptPickup(request.id);
+      Alert.alert('Claimed!', 'Pickup assigned to your route. Check the Assigned tab.');
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Failed to claim pickup.');
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
+  // Active / Ongoing Job (En Route or Accepted)
+  const activeJob = assignedPickups.find(
+    (p) => p.status === 'IN_TRANSIT' || p.status === 'ACCEPTED'
+  );
+
+  const completedPickups = assignedPickups.filter((p) => p.status === 'COMPLETED');
+  const pendingOrAssigned = assignedPickups.filter((p) => p.status !== 'COMPLETED');
+
+  // Stats
+  const completedCount = completedPickups.length || profile?.completed_pickups || 8;
+  const totalWeightKg = assignedPickups
+    .filter((p) => p.status === 'COMPLETED')
+    .reduce((sum, p) => sum + (Number(p.estimated_weight) || 0), 240);
+
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#10B981" />
+        <Text style={styles.loadingText}>Loading Collector Fleet Dashboard...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ── Top Header ────────────────────────────────────────── */}
+      <View style={styles.topHeader}>
+        <View>
+          <Text style={styles.brandSmall}>ECONEXUS</Text>
+          <Text style={styles.dashboardTitle}>Collector Dashboard</Text>
+        </View>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity style={styles.notificationBtn}>
+            <Text style={styles.bellIcon}>🔔</Text>
+            <View style={styles.notifBadgeDot} />
+          </TouchableOpacity>
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>
+              {user?.name?.charAt(0) || profile?.name?.charAt(0) || 'K'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Collector Profile & Stats Card ───────────────────── */}
+      <View style={styles.profileCard}>
+        <View style={styles.profileRow}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarEmoji}>👨‍✈️</Text>
+            </View>
+            <View
+              style={[
+                styles.onlineIndicatorBadge,
+                { backgroundColor: profile?.is_available ? '#10B981' : '#9CA3AF' },
+              ]}
+            />
+          </View>
+
+          <View style={styles.profileDetails}>
+            <View style={styles.nameVerifiedRow}>
+              <Text style={styles.collectorName}>
+                {user?.name || profile?.name || 'Kamal Perera'}
+              </Text>
+              <View style={styles.verifiedCheck}>
+                <Text style={styles.checkText}>✓</Text>
+              </View>
+            </View>
+            <Text style={styles.vehicleSectorText}>
+              {profile?.vehicle_type || 'WP-9214'} • RATNAPURA SECTOR
+            </Text>
+          </View>
+
+          {/* Online Toggle Pill */}
+          <TouchableOpacity
+            style={[
+              styles.onlinePill,
+              profile?.is_available ? styles.onlinePillActive : styles.onlinePillInactive,
+            ]}
+            onPress={handleToggleOnline}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: profile?.is_available ? '#10B981' : '#9CA3AF' },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: profile?.is_available ? '#065F46' : '#6B7280' },
+              ]}
+            >
+              {profile?.is_available ? 'Online' : 'Offline'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 3 Metric Tiles */}
+        <View style={styles.metricsRow}>
+          <View style={[styles.metricTile, { backgroundColor: '#F0F9FF' }]}>
+            <Text style={styles.metricLabel}>Pickups</Text>
+            <Text style={styles.metricValue}>
+              <Text style={{ fontWeight: '800' }}>{completedCount}</Text>
+              <Text style={styles.metricTotal}>/10</Text>
+            </Text>
+            <Text style={[styles.metricSubtitle, { color: '#0369A1' }]}>Done</Text>
+          </View>
+
+          <View style={[styles.metricTile, { backgroundColor: '#F0FDF4' }]}>
+            <Text style={styles.metricLabel}>Volume</Text>
+            <Text style={styles.metricValue}>
+              <Text style={{ fontWeight: '800' }}>{totalWeightKg.toFixed(0)}</Text>
+              <Text style={styles.metricUnit}> kg</Text>
+            </Text>
+            <Text style={[styles.metricSubtitle, { color: '#15803D' }]}>+18% goal</Text>
+          </View>
+
+          <View style={[styles.metricTile, { backgroundColor: '#FEFCE8' }]}>
+            <Text style={styles.metricLabel}>Earnings</Text>
+            <Text style={styles.metricValue}>$85.50</Text>
+            <Text style={[styles.metricSubtitle, { color: '#A16207' }]}>⭐ 450 pts</Text>
           </View>
         </View>
       </View>
@@ -432,6 +711,385 @@ export default function CollectorDashboardScreen({ navigation }: Props) {
         <View style={styles.tierProgressTrack}>
           <View style={styles.tierProgressFill} />
         </View>
+      {/* ── Active Dispatch Stop (Dark Green Card) ──────────── */}
+      {activeJob ? (
+        <View style={styles.dispatchCard}>
+          <View style={styles.dispatchTopRow}>
+            <View style={styles.dispatchIndicator}>
+              <View style={styles.dispatchDot} />
+              <Text style={styles.dispatchHeaderLabel}>ACTIVE DISPATCH STOP</Text>
+            </View>
+            <View style={styles.etaBadge}>
+              <Text style={styles.etaText}>⏱ ETA 12 mins</Text>
+            </View>
+          </View>
+
+          <View style={styles.dispatchAddressRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.dispatchAddress} numberOfLines={1}>
+                {activeJob.address_text || '123 Green View Rd'}
+              </Text>
+              <Text style={styles.dispatchSub} numberOfLines={1}>
+                {activeJob.notes || 'Ratnapura Central • Customer ready'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.launchGpsBtn}
+              onPress={() => handleLaunchGPS(activeJob)}
+            >
+              <Text style={styles.launchGpsText}>🚀 Launch GPS</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.dispatchCard, { backgroundColor: '#064E3B' }]}>
+          <Text style={styles.dispatchHeaderLabel}>DISPATCH STATUS</Text>
+          <Text style={styles.dispatchAddress}>Ready for Next Pickup</Text>
+          <Text style={styles.dispatchSub}>
+            Select an open request below to start your next collection route.
+          </Text>
+        </View>
+      )}
+
+      {/* ── Quick Utility Action Bar ─────────────────────────── */}
+      <View style={styles.quickBar}>
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          onPress={() => Alert.alert('QR Scanner', 'Weighing scale QR scanner initiated.')}
+        >
+          <Text style={styles.quickActionIcon}>⛶</Text>
+          <Text style={styles.quickActionLabel}>QR Scan</Text>
+        </TouchableOpacity>
+
+        <View style={styles.quickBarDivider} />
+
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          onPress={() => Alert.alert('Scale Sync', 'Connecting to wireless digital Bluetooth scale...')}
+        >
+          <Text style={styles.quickActionIcon}>⚖️</Text>
+          <Text style={styles.quickActionLabel}>Scale Sync</Text>
+        </TouchableOpacity>
+
+        <View style={styles.quickBarDivider} />
+
+        <TouchableOpacity
+          style={styles.quickActionItem}
+          onPress={() => navigation.navigate('ServiceArea')}
+        >
+          <Text style={styles.quickActionIcon}>📍</Text>
+          <Text style={styles.quickActionLabel}>Optimizer</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Segment Tabs ─────────────────────────────────────── */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'ASSIGNED' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('ASSIGNED')}
+        >
+          <Text style={[styles.tabText, activeTab === 'ASSIGNED' && styles.tabTextActive]}>
+            Assigned
+          </Text>
+          <View
+            style={[
+              styles.tabCounterPill,
+              activeTab === 'ASSIGNED' ? styles.counterActive : styles.counterInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.counterText,
+                { color: activeTab === 'ASSIGNED' ? '#FFFFFF' : '#6B7280' },
+              ]}
+            >
+              {pendingOrAssigned.length || 2}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'NEARBY' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('NEARBY')}
+        >
+          <Text style={[styles.tabText, activeTab === 'NEARBY' && styles.tabTextActive]}>
+            Nearby
+          </Text>
+          <View
+            style={[
+              styles.tabCounterPill,
+              activeTab === 'NEARBY' ? styles.counterActive : styles.counterInactive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.counterText,
+                { color: activeTab === 'NEARBY' ? '#FFFFFF' : '#6B7280' },
+              ]}
+            >
+              {nearbyPickups.length || 5}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'COMPLETED' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('COMPLETED')}
+        >
+          <Text style={[styles.tabText, activeTab === 'COMPLETED' && styles.tabTextActive]}>
+            Completed
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Tab Content: Task Cards ──────────────────────────── */}
+      {activeTab === 'ASSIGNED' && (
+        <View style={styles.cardsList}>
+          {/* Card 1: En Route / In Progress */}
+          <View style={styles.orderCard}>
+            <View style={styles.orderTopRow}>
+              <Text style={styles.orderCode}>#ECO-8492 • 0.8 km away</Text>
+              <View style={styles.enRouteBadge}>
+                <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                <Text style={styles.enRouteText}>En Route</Text>
+              </View>
+            </View>
+
+            <Text style={styles.orderCustomerName}>Nirmal S.</Text>
+
+            {/* Inventory Breakdown Box */}
+            <View style={styles.inventoryBox}>
+              <View style={styles.inventoryThumbPlaceholder}>
+                <Text style={{ fontSize: 22 }}>📦</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inventoryHeader}>INVENTORY BREAKDOWN</Text>
+                <Text style={styles.inventoryMaterials} numberOfLines={1}>
+                  5.0 kg Plastic (PET) + 3.0 kg Cardboard
+                </Text>
+                <Text style={styles.inventoryMeta}>
+                  Est. Value: $4.20 • Doorstep Ready
+                </Text>
+              </View>
+            </View>
+
+            {/* Actions: Call & Mark Arrived */}
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={styles.subActionBtn}
+                onPress={() => handleCallCustomer('0771234567')}
+              >
+                <Text style={styles.subActionBtnText}>📞 Call Customer</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.subActionBtn}
+                onPress={() => Alert.alert('Arrived', 'Customer alerted that driver is outside.')}
+              >
+                <Text style={styles.subActionBtnText}>📍 Mark Arrived</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Weigh / QR Scan Primary Button */}
+            <TouchableOpacity
+              style={styles.qrWeighBtn}
+              onPress={() => {
+                if (activeJob) {
+                  handleAdvancePickup(activeJob.id, 'COMPLETED');
+                } else {
+                  Alert.alert('Weighing Scale', 'Ready to weigh collected load.');
+                }
+              }}
+            >
+              <Text style={styles.qrWeighBtnText}>⛶ Open QR Scanner to Weigh</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Card 2: Scheduled Pickup */}
+          <View style={styles.orderCard}>
+            <View style={styles.orderTopRow}>
+              <Text style={styles.orderCode}>#ECO-8501 • 2.3 km away</Text>
+              <View style={styles.scheduledBadge}>
+                <Text style={styles.scheduledText}>🕒 11:30 AM</Text>
+              </View>
+            </View>
+
+            <Text style={styles.orderCustomerName}>Dilani K.</Text>
+
+            <View style={styles.inventoryBox}>
+              <View style={styles.inventoryThumbPlaceholder}>
+                <Text style={{ fontSize: 22 }}>💻</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inventoryHeader}>SCHEDULED MATERIALS</Text>
+                <Text style={styles.inventoryMaterials} numberOfLines={1}>
+                  12.0 kg E-Waste & Metal Appliances
+                </Text>
+                <Text style={[styles.inventoryMeta, { color: '#0D9488' }]}>
+                  Specialized Handling Required
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={styles.subActionBtn}
+                onPress={() => Alert.alert('Re-route', 'Route recalculated with optimized stop sequence.')}
+              >
+                <Text style={styles.subActionBtnText}>⤴ Re-route</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.subActionBtn, { backgroundColor: '#15803D' }]}
+                onPress={() => Alert.alert('Confirmed', 'Dispatch stop confirmed for 11:30 AM.')}
+              >
+                <Text style={[styles.subActionBtnText, { color: '#FFFFFF' }]}>
+                  ✓ Confirm Dispatch
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ── Tab Content: Nearby Pool ─────────────────────────── */}
+      {activeTab === 'NEARBY' && (
+        <View style={styles.cardsList}>
+          {nearbyPickups.length > 0 ? (
+            nearbyPickups.map((item) => (
+              <View key={item.id} style={styles.orderCard}>
+                <View style={styles.orderTopRow}>
+                  <Text style={styles.orderCode}>
+                    #ECO-{item.id.slice(0, 4)} •{' '}
+                    {item.distance_meters
+                      ? (item.distance_meters / 1000).toFixed(1) + ' km nearby'
+                      : 'Nearby'}
+                  </Text>
+                  <View style={styles.openPoolBadge}>
+                    <Text style={styles.openPoolText}>Open Pool</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.orderCustomerName}>
+                  {item.user_name || 'Commercial Green Cafe'}
+                </Text>
+
+                <View style={styles.inventoryBox}>
+                  <View style={styles.inventoryThumbPlaceholder}>
+                    <Text style={{ fontSize: 22 }}>♻️</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inventoryMaterials}>
+                      {item.estimated_weight || 15}.0 kg {item.waste_type}
+                    </Text>
+                    <Text style={styles.inventoryMeta} numberOfLines={1}>
+                      {item.address_text}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.pointsHighlight}>+45 Pts</Text>
+                    <Text style={styles.cashHighlight}>$9.00</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.instantClaimBtn}
+                  disabled={claimingId === item.id}
+                  onPress={() => handleClaimPickup(item)}
+                >
+                  {claimingId === item.id ? (
+                    <ActivityIndicator size="small" color="#0A0F0D" />
+                  ) : (
+                    <Text style={styles.instantClaimText}>
+                      ⚡ Instant Claim (+45 EcoHauler Pts)
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ))
+          ) : (
+            <View style={styles.orderCard}>
+              <View style={styles.orderTopRow}>
+                <Text style={styles.orderCode}>#ECO-8510 • 1.5 km nearby</Text>
+                <View style={styles.openPoolBadge}>
+                  <Text style={styles.openPoolText}>Open Pool</Text>
+                </View>
+              </View>
+
+              <Text style={styles.orderCustomerName}>Commercial Green Cafe</Text>
+
+              <View style={styles.inventoryBox}>
+                <View style={styles.inventoryThumbPlaceholder}>
+                  <Text style={{ fontSize: 22 }}>🥬</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inventoryMaterials}>
+                    15.0 kg Organic & Paper
+                  </Text>
+                  <Text style={styles.inventoryMeta}>
+                    Loading dock ready • Back alley access
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.pointsHighlight}>+45 Pts</Text>
+                  <Text style={styles.cashHighlight}>$9.00</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.instantClaimBtn}
+                onPress={() => Alert.alert('Claimed', 'Added to your dispatch route!')}
+              >
+                <Text style={styles.instantClaimText}>
+                  ⚡ Instant Claim (+45 EcoHauler Pts)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Tab Content: Completed ───────────────────────────── */}
+      {activeTab === 'COMPLETED' && (
+        <View style={styles.cardsList}>
+          {completedPickups.length > 0 ? (
+            completedPickups.map((item) => (
+              <View key={item.id} style={styles.orderCard}>
+                <View style={styles.orderTopRow}>
+                  <Text style={styles.orderCode}>#ECO-{item.id.slice(0, 4)}</Text>
+                  <View style={[styles.enRouteBadge, { backgroundColor: '#DCFCE7' }]}>
+                    <Text style={[styles.enRouteText, { color: '#15803D' }]}>Completed</Text>
+                  </View>
+                </View>
+                <Text style={styles.orderCustomerName}>{item.address_text}</Text>
+                <Text style={styles.inventoryMeta}>
+                  ⚖️ {item.estimated_weight || 10} kg • {item.waste_type}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyIcon}>📦</Text>
+              <Text style={styles.emptyTitle}>No Completed Pickups Yet</Text>
+              <Text style={styles.emptyText}>Completed collections will show here.</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* ── Gamification / Master Hauler Tier Banner ─────────── */}
+      <View style={styles.tierBanner}>
+        <View style={styles.trophyCircle}>
+          <Text style={{ fontSize: 22 }}>🏆</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tierTitle}>Tier 3 Master Hauler</Text>
+          <Text style={styles.tierSub}>
+            2 more pickups to unlock $20 daily fuel stipend
+          </Text>
+        </View>
+        <Text style={styles.tierPercent}>80%</Text>
       </View>
     </ScrollView>
   );
