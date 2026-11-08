@@ -10,6 +10,7 @@ import RoleNavigator from './RoleNavigator';
 import SplashScreen from '../screens/auth/SplashScreen';
 import { hasSeenOnboarding, markOnboardingSeen } from '../services/appPreferences';
 import { getRootFlow } from './rootFlow';
+import { linking } from './linking';
 export { getRootFlow } from './rootFlow';
 export type { RootFlow } from './rootFlow';
 
@@ -95,7 +96,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer key={transitionKey}>
+    <NavigationContainer key={transitionKey} linking={linking}>
       <Animated.View style={[styles.flow, { opacity }]}>{screen}</Animated.View>
     </NavigationContainer>
   );

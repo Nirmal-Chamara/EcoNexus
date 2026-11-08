@@ -2,6 +2,7 @@
   "expo": {
     "name": "EcoNexus",
     "slug": "econexus",
+    "scheme": "econexus",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
