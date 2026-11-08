@@ -9,7 +9,7 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: { partner?: boolean } | undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { token?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
