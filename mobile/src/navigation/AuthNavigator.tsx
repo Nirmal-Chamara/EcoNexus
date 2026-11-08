@@ -10,7 +10,6 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: { partner?: boolean } | undefined;
   CollectorLogin: undefined;
-  Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { token?: string } | undefined;
 };
