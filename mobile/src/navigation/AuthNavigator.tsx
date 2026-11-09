@@ -5,13 +5,19 @@ import CollectorLoginScreen from '../screens/auth/CollectorLoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
+import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
+import OnboardingScreen from '../screens/auth/OnboardingScreen';
+import SplashScreen from '../screens/auth/SplashScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: { partner?: boolean } | undefined;
+  Register: { partner?: boolean; role?: 'user' | 'collector' | 'center' } | undefined;
   CollectorLogin: undefined;
   ForgotPassword: undefined;
   ResetPassword: { token?: string } | undefined;
+  RoleSelection: undefined;
+  OnboardingTour: undefined;
+  Splash: undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -31,10 +37,13 @@ export default function AuthNavigator() {
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="CollectorLogin" component={CollectorLoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="OnboardingTour" component={OnboardingScreen} />
+      <Stack.Screen name="Splash" component={SplashScreen} />
     </Stack.Navigator>
   );
 }

@@ -128,7 +128,7 @@ export default function LoginScreen({ navigation }: Props) {
             accessibilityRole="tab"
             accessibilityLabel="Create Account"
             accessibilityState={{ selected: false }}
-            onPress={() => navigation?.navigate('Register')}
+            onPress={() => navigation?.navigate('RoleSelection')}
             style={styles.tabButton}
           >
             <Ionicons name="person-add-outline" size={17} color="#6B7280" style={styles.tabIcon} />

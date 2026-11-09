@@ -95,7 +95,13 @@ function PasswordStrength({ password }: { password: string }) {
 export default function RegisterScreen({ navigation, route }: Props) {
   const { signUp } = useAuth();
   const partnerMode = route.params?.partner === true;
-  const defaultRole: Exclude<UserRole, 'ADMIN'> = partnerMode ? 'COLLECTOR' : 'USER';
+  const paramRole = route.params?.role;
+  const defaultRole: Exclude<UserRole, 'ADMIN'> =
+    paramRole === 'center'
+      ? 'RECYCLING_CENTER'
+      : paramRole === 'collector' || partnerMode
+      ? 'COLLECTOR'
+      : 'USER';
   const [step, setStep] = useState(0);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
