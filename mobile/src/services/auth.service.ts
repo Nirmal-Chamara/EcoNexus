@@ -28,9 +28,16 @@ export const authService = {
    * Login or register using Google OAuth ID token.
    */
   async loginWithGoogle(idToken: string, role?: string): Promise<AuthResponse> {
+    const mappedRole =
+      role === 'center' || role === 'RECYCLING_CENTER'
+        ? 'RECYCLING_CENTER'
+        : role === 'collector' || role === 'COLLECTOR'
+        ? 'COLLECTOR'
+        : 'USER';
+
     const response = await apiClient.post<ApiEnvelope<AuthResponse>>('/auth/google', {
       idToken,
-      role,
+      role: mappedRole,
     });
     return response.data.data;
   },
