@@ -1,7 +1,5 @@
-import React from 'react';
-import { DevSettings, Modal } from 'react-native';
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet, View, Platform, DevSettings, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
@@ -40,13 +38,9 @@ export default function App() {
       <AuthProvider>
         <NetworkStatusBanner />
         <ErrorBoundary>
-          <RootNavigator />
-        </ErrorBoundary>
-        <StatusBar style="light" />
-        <View style={styles.root}>
           <AppContent />
-          <StatusBar style="auto" />
-        </View>
+        </ErrorBoundary>
+        <StatusBar style="auto" />
       </AuthProvider>
       {__DEV__ && (
         <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>

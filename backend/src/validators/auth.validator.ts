@@ -62,10 +62,22 @@ export const resetPasswordConfirmSchema = z.object({
 
 export const forgotPasswordSchema = resetPasswordRequestSchema;
 
+export const googleAuthRoleSchema = z
+  .preprocess((val) => {
+    if (typeof val === 'string') {
+      const upper = val.toUpperCase();
+      if (upper === 'CENTER') return 'RECYCLING_CENTER';
+      return upper;
+    }
+    return val;
+  }, userRoleSchema)
+  .optional()
+  .default('USER');
+
 export const googleAuthSchema = z.object({
   body: z.object({
     idToken: z.string().min(1, 'Google ID token is required'),
-    role: userRoleSchema.optional().default('USER'),
+    role: googleAuthRoleSchema,
   }),
 });
 

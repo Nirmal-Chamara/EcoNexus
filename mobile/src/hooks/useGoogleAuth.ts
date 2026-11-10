@@ -35,9 +35,15 @@ function getGoogleClientId(): string {
 }
 
 function getRedirectUri(): string {
+  // Allow explicit override via environment variable if needed
+  if (process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI) {
+    return process.env.EXPO_PUBLIC_GOOGLE_REDIRECT_URI;
+  }
+
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location) {
-      return `${window.location.protocol}//${window.location.host}`;
+      // Use standard origin (e.g. http://localhost:8081)
+      return window.location.origin || `${window.location.protocol}//${window.location.host}`;
     }
     return 'http://localhost:8081';
   }
@@ -72,6 +78,11 @@ export function useGoogleAuth(): UseGoogleAuthResult {
 
         if (activeClientId) {
           const redirectUri = getRedirectUri();
+          if (__DEV__) {
+            console.log('[GoogleAuth] Initiating Google Sign-In with:');
+            console.log('  Client ID:', activeClientId);
+            console.log('  Redirect URI:', redirectUri);
+          }
           const nonce = typeof Crypto.randomUUID === 'function'
             ? Crypto.randomUUID()
             : Math.random().toString(36).substring(2) + Date.now().toString(36);

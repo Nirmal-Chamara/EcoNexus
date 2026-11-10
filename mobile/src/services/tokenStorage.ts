@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -6,20 +5,36 @@ import { Platform } from 'react-native';
 const options: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
+
 const webMemory = new Map<string, string>();
-const read = (key: string): Promise<string | null> =>
-  Platform.OS === 'web'
-    ? Promise.resolve(webMemory.get(key) ?? null)
-    : SecureStore.getItemAsync(key, options);
+
+const read = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    try {
+      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : (webMemory.get(key) ?? null);
+    } catch {
+      return webMemory.get(key) ?? null;
+    }
+  }
+  return SecureStore.getItemAsync(key, options);
+};
+
 const write = async (key: string, value: string): Promise<void> => {
   if (Platform.OS === 'web') {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    } catch {}
     webMemory.set(key, value);
     return;
   }
   await SecureStore.setItemAsync(key, value, options);
 };
+
 const remove = async (key: string): Promise<void> => {
   if (Platform.OS === 'web') {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    } catch {}
     webMemory.delete(key);
     return;
   }
@@ -51,53 +66,10 @@ export function subscribeAccessToken(listener: (token: string | null) => void): 
 function setAccessToken(token: string | null): void {
   _memoryAccessToken = token;
   accessListeners.forEach((listener) => listener(token));
-const _memoryStorage = new Map<string, string>();
-
-const isWeb = Platform.OS === 'web';
-
-async function storageGet(key: string): Promise<string | null> {
-  if (isWeb) {
-    try {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : (_memoryStorage.get(key) ?? null);
-    } catch {
-      return _memoryStorage.get(key) ?? null;
-    }
-  }
-  try {
-    return await SecureStore.getItemAsync(key);
-  } catch {
-    return _memoryStorage.get(key) ?? null;
-  }
-}
-
-async function storageSet(key: string, value: string): Promise<void> {
-  _memoryStorage.set(key, value);
-  if (isWeb) {
-    try {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-    } catch {}
-    return;
-  }
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch {}
-}
-
-async function storageDelete(key: string): Promise<void> {
-  _memoryStorage.delete(key);
-  if (isWeb) {
-    try {
-      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
-    } catch {}
-    return;
-  }
-  try {
-    await SecureStore.deleteItemAsync(key);
-  } catch {}
 }
 
 /**
- * Universal token storage using expo-secure-store (Native) and localStorage (Web).
+ * Universal token storage using expo-secure-store (Native) and localStorage/webMemory (Web).
  */
 export const tokenStorage = {
   // ── Preference ─────────────────────────────────────────────────
@@ -108,12 +80,6 @@ export const tokenStorage = {
 
   async getKeepSignedIn(): Promise<boolean> {
     const val = await read(KEYS.KEEP_SIGNED_IN);
-    // Default to true (checked) if not yet set
-    await storageSet(KEYS.KEEP_SIGNED_IN, value ? '1' : '0');
-  },
-
-  async getKeepSignedIn(): Promise<boolean> {
-    const val = await storageGet(KEYS.KEEP_SIGNED_IN);
     return val !== '0';
   },
 
@@ -125,11 +91,6 @@ export const tokenStorage = {
 
   async getBiometricEnabled(): Promise<boolean> {
     const val = await read(KEYS.BIOMETRIC_ENABLED);
-    await storageSet(KEYS.BIOMETRIC_ENABLED, value ? '1' : '0');
-  },
-
-  async getBiometricEnabled(): Promise<boolean> {
-    const val = await storageGet(KEYS.BIOMETRIC_ENABLED);
     return val === '1';
   },
 
@@ -139,8 +100,6 @@ export const tokenStorage = {
     await tokenStorage.saveRefresh(refreshToken, keepSignedIn);
     setAccessToken(accessToken);
   },
-    _memoryAccessToken = accessToken;
-    await storageDelete(KEYS.LEGACY_ACCESS_TOKEN);
 
   async saveRefresh(refreshToken: string, keepSignedIn = true): Promise<void> {
     await remove(KEYS.LEGACY_ACCESS_TOKEN);
@@ -150,10 +109,6 @@ export const tokenStorage = {
       _memoryRefreshToken = null;
     } else {
       await remove(KEYS.REFRESH_TOKEN);
-      await storageSet(KEYS.REFRESH_TOKEN, refreshToken);
-      _memoryRefreshToken = null;
-    } else {
-      await storageDelete(KEYS.REFRESH_TOKEN);
       _memoryRefreshToken = refreshToken;
     }
   },
@@ -169,23 +124,23 @@ export const tokenStorage = {
     return _memoryAccessToken;
   },
 
+  /**
+   * Retrieve the refresh token from the correct storage location.
+   */
   async getRefreshToken(): Promise<string | null> {
     return tokenStorage.getRefresh();
-    const persisted = await storageGet(KEYS.REFRESH_TOKEN);
-    return persisted ?? _memoryRefreshToken;
   },
 
+  /**
+   * Delete all stored auth tokens and reset memory slot.
+   */
   async clearTokens(): Promise<void> {
     return tokenStorage.clear();
   },
 
   async clear(): Promise<void> {
     setAccessToken(null);
-    _memoryAccessToken = null;
-    await storageDelete(KEYS.REFRESH_TOKEN);
-    await storageDelete(KEYS.LEGACY_ACCESS_TOKEN);
     _memoryRefreshToken = null;
-    // Attempt both deletions even when one fails; never leave memory signed in.
     const results = await Promise.allSettled([
       remove(KEYS.REFRESH_TOKEN),
       remove(KEYS.LEGACY_ACCESS_TOKEN),

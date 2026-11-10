@@ -9,13 +9,13 @@ export async function hasSeenOnboarding(): Promise<boolean> {
     try {
       return typeof localStorage !== 'undefined' && localStorage.getItem(HAS_SEEN_ONBOARDING) === '1';
     } catch {
-      return true; // Don't block web preview with onboarding
+      return false;
     }
   }
   try {
     return (await SecureStore.getItemAsync(HAS_SEEN_ONBOARDING)) === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -28,5 +28,17 @@ export async function markOnboardingSeen(): Promise<void> {
   }
   try {
     await SecureStore.setItemAsync(HAS_SEEN_ONBOARDING, '1');
+  } catch {}
+}
+
+export async function resetOnboardingSeen(): Promise<void> {
+  if (isWeb) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(HAS_SEEN_ONBOARDING);
+    } catch {}
+    return;
+  }
+  try {
+    await SecureStore.deleteItemAsync(HAS_SEEN_ONBOARDING);
   } catch {}
 }

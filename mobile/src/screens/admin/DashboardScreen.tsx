@@ -270,6 +270,14 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={() => navigation.navigate('ProfileTab')}
+            accessibilityLabel="Admin Profile"
+          >
+            <Text style={styles.avatarButtonText}>AD</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.signOutButton}
             onPress={handleSignOut}
             accessibilityLabel="Sign Out"
@@ -663,6 +671,19 @@ const styles = StyleSheet.create({
   notificationDotText: {
     fontSize: 9,
     fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  avatarButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   signOutButton: {

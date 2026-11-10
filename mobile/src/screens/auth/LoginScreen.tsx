@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Button } from '../../components/common/Button';
 import EcoNexusLogo from '../../components/common/EcoNexusLogo';
+import GoogleLogo from '../../components/common/GoogleLogo';
 import { Toast } from '../../components/ui';
 import { colors, radii, spacing, typography } from '../../theme';
 import { loginSchema } from '../../schemas/auth.schema';
@@ -34,7 +35,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn, logoutReason, dismissLogoutReason } = useAuth();
+  const { signIn, devLogin, logoutReason, dismissLogoutReason } = useAuth();
   const {
     promptGoogleSignIn,
     isLoading: isGoogleLoading,
@@ -46,8 +47,6 @@ export default function LoginScreen({ navigation }: Props) {
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, devLogin } = useAuth();
-  const [keepSignedIn, setKeepSignedIn] = React.useState(true);
   const passwordRef = useRef<TextInput>(null);
 
   const {
@@ -165,7 +164,7 @@ export default function LoginScreen({ navigation }: Props) {
           />
         )}
 
-        {/* Social Authentication Buttons */}
+        {/* Social Authentication */}
         <View style={styles.socialButtonsGroup}>
           <Pressable
             accessibilityRole="button"
@@ -174,20 +173,10 @@ export default function LoginScreen({ navigation }: Props) {
             onPress={() => promptGoogleSignIn(keepSignedIn)}
             disabled={isGoogleLoading}
           >
-            <Ionicons name="logo-google" size={18} color="#EA4335" />
+            <GoogleLogo size={20} />
             <Text style={styles.socialButtonText}>
               {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
             </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue with Apple"
-            style={styles.socialButton}
-            onPress={() => { }}
-          >
-            <Ionicons name="logo-apple" size={19} color="#000000" />
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
           </Pressable>
         </View>
 
@@ -386,21 +375,9 @@ export default function LoginScreen({ navigation }: Props) {
           </Pressable>
         </View>
 
-        {/* Security Footnote */}
-        <Text style={styles.securityFootnote}>
-          🔒 256-Bit SSL Encrypted  •  ISO 14001 Certified
-        </Text>
-        <Pressable
-          onPress={() => navigation?.navigate('Register', { partner: true })}
-          accessibilityRole="button"
-          style={styles.partnerLink}
-        >
-          <Text style={styles.partnerText}>Collector / Facility Partner Portal</Text>
-        </Pressable>
-
         {/* Collector Role Portal Link */}
-        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 8, gap: 10 }}>
-          <TouchableOpacity
+        <View style={{ alignItems: 'center', marginTop: 12, marginBottom: 4, gap: 10 }}>
+          <Pressable
             style={{
               paddingVertical: 10,
               paddingHorizontal: 16,
@@ -414,9 +391,9 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={{ color: colors.roleCollector, fontSize: 13, fontWeight: '700' }}>
               🚛 Collector Partner Sign In →
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
+          <Pressable
             style={{
               paddingVertical: 8,
               paddingHorizontal: 16,
@@ -430,16 +407,13 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
               ⚡ Instant Look (Collector Dashboard) →
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <Pressable onPress={() => navigation?.navigate('Register')} accessibilityRole="button">
-            <Text style={styles.link}>Create account</Text>
           </Pressable>
         </View>
+
+        {/* Security Footnote */}
+        <Text style={styles.securityFootnote}>
+          🔒 256-Bit SSL Encrypted  •  ISO 14001 Certified
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

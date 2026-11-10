@@ -4,6 +4,7 @@
     "slug": "econexus",
     "scheme": "econexus",
     "version": "1.0.0",
+    "icon": "./assets/icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -15,7 +16,11 @@
       "bundleIdentifier": "com.econexus.app"
     },
     "android": {
-      "package": "com.econexus.app"
+      "package": "com.econexus.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8FAF9"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
