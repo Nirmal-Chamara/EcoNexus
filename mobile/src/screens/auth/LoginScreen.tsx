@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { Button } from '../../components/common/Button';
 import EcoNexusLogo from '../../components/common/EcoNexusLogo';
+import GoogleLogo from '../../components/common/GoogleLogo';
 import { Toast } from '../../components/ui';
 import { colors, radii, spacing, typography } from '../../theme';
 import { loginSchema } from '../../schemas/auth.schema';
@@ -128,7 +129,7 @@ export default function LoginScreen({ navigation }: Props) {
             accessibilityRole="tab"
             accessibilityLabel="Create Account"
             accessibilityState={{ selected: false }}
-            onPress={() => navigation?.navigate('RoleSelection')}
+            onPress={() => navigation?.navigate('Register')}
             style={styles.tabButton}
           >
             <Ionicons name="person-add-outline" size={17} color="#6B7280" style={styles.tabIcon} />
@@ -163,7 +164,7 @@ export default function LoginScreen({ navigation }: Props) {
           />
         )}
 
-        {/* Social Authentication Buttons */}
+        {/* Social Authentication */}
         <View style={styles.socialButtonsGroup}>
           <Pressable
             accessibilityRole="button"
@@ -172,20 +173,10 @@ export default function LoginScreen({ navigation }: Props) {
             onPress={() => promptGoogleSignIn(keepSignedIn)}
             disabled={isGoogleLoading}
           >
-            <Ionicons name="logo-google" size={18} color="#EA4335" />
+            <GoogleLogo size={20} />
             <Text style={styles.socialButtonText}>
               {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
             </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Continue with Apple"
-            style={styles.socialButton}
-            onPress={() => { }}
-          >
-            <Ionicons name="logo-apple" size={19} color="#000000" />
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
           </Pressable>
         </View>
 
