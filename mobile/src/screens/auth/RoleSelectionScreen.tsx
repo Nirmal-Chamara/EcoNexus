@@ -12,6 +12,8 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { onboardingTheme } from '../../theme/onboardingTheme';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import GoogleLogo from '../../components/common/GoogleLogo';
 
 export type UserRoleType = 'user' | 'collector' | 'center';
 
@@ -23,6 +25,12 @@ interface Props {
 
 export default function RoleSelectionScreen({ navigation, onProceed, onLogin }: Props) {
   const [selectedRole, setSelectedRole] = useState<UserRoleType>('user');
+  const {
+    promptGoogleSignIn,
+    isLoading: isGoogleLoading,
+    error: googleError,
+    clearError: clearGoogleError,
+  } = useGoogleAuth();
 
   const handleProceed = () => {
     if (onProceed) {
@@ -49,12 +57,13 @@ export default function RoleSelectionScreen({ navigation, onProceed, onLogin }: 
     }
   };
 
-  const handleGoogleSignIn = () => {
-    Alert.alert(
-      'Continue with Google',
-      'Redirecting to secure Google authentication for EcoNexus...',
-      [{ text: 'OK' }]
-    );
+  const handleGoogleSignIn = async () => {
+    const roleMap: Record<UserRoleType, string> = {
+      user: 'USER',
+      collector: 'COLLECTOR',
+      center: 'RECYCLING_CENTER',
+    };
+    await promptGoogleSignIn(true, roleMap[selectedRole]);
   };
 
   const getButtonLabel = () => {
@@ -319,14 +328,28 @@ export default function RoleSelectionScreen({ navigation, onProceed, onLogin }: 
             <View style={styles.dividerLine} />
           </View>
 
+          {/* Google Error Banner */}
+          {googleError && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="alert-circle" size={16} color="#DC2626" />
+              <Text style={styles.errorBannerText}>{googleError}</Text>
+              <TouchableOpacity onPress={clearGoogleError}>
+                <Ionicons name="close" size={14} color="#991B1B" />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Google Sign-in Button */}
           <TouchableOpacity
-            style={styles.googleButton}
+            style={[styles.googleButton, isGoogleLoading && { opacity: 0.7 }]}
             onPress={handleGoogleSignIn}
+            disabled={isGoogleLoading}
             activeOpacity={0.85}
           >
-            <Ionicons name="logo-google" size={18} color="#EA4335" />
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
+            <GoogleLogo size={20} />
+            <Text style={styles.googleButtonText}>
+              {isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}
+            </Text>
           </TouchableOpacity>
 
           {/* Login Link */}
@@ -631,6 +654,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#991B1B',
+    fontWeight: '500',
   },
   dividerRow: {
     flexDirection: 'row',
