@@ -8,6 +8,7 @@ import {
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import CreateListingScreen from '../screens/user/CreateWasteListingScreen';
 import MyListingsScreen from '../screens/user/MyListingsScreen';
 import WasteCategoryScreen from '../screens/user/WasteCategoryScreen';
 import WasteKitScreen from '../screens/user/WasteKitScreen';
@@ -17,7 +18,8 @@ export type WasteStackParamList = {
   Kit: undefined;
   MyListings: undefined;
   Categories: undefined;
-  AddListing: { categoryId: number; categoryName: string };
+  AddListing: undefined;
+  RequestCollection: { listingIds: string[] };
   ListingDetail: { id: string };
 };
 
@@ -34,13 +36,7 @@ function Placeholder({ label }: { label: string }) {
 function CategoriesRoute({
   navigation,
 }: NativeStackScreenProps<WasteStackParamList, 'Categories'>) {
-  return (
-    <WasteCategoryScreen
-      onSelect={(c) =>
-        navigation.navigate('AddListing', { categoryId: c.id, categoryName: c.name })
-      }
-    />
-  );
+  return <WasteCategoryScreen onSelect={() => navigation.navigate('AddListing')} />;
 }
 
 export default function WasteNavigator() {
@@ -64,7 +60,7 @@ export default function WasteNavigator() {
 
   return (
     <Stack.Navigator
-      initialRouteName="Kit" // change to "MyListings" after you have checked the preview
+      initialRouteName="AddListing" // use "MyListings" once the form works
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -85,7 +81,18 @@ export default function WasteNavigator() {
         options={{ title: 'Choose a category' }}
       />
       <Stack.Screen name="AddListing" options={{ title: 'Create Listing' }}>
-        {() => <Placeholder label="Create listing form" />}
+        {({ navigation }) => (
+          <CreateListingScreen
+            onDone={(id, goNext) =>
+              goNext
+                ? navigation.replace('RequestCollection', { listingIds: [id] })
+                : navigation.replace('MyListings')
+            }
+          />
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="RequestCollection" options={{ title: 'Create Collection Request' }}>
+        {() => <Placeholder label="Pickup location & schedule" />}
       </Stack.Screen>
       <Stack.Screen name="ListingDetail" options={{ title: 'Listing' }}>
         {() => <Placeholder label="Listing details" />}
@@ -101,4 +108,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-
