@@ -21,6 +21,7 @@ export type WasteStackParamList = {
   AddListing: undefined;
   RequestCollection: { listingIds: string[] };
   ListingDetail: { id: string };
+  EditListing: { id: string };
 };
 
 const Stack = createNativeStackNavigator<WasteStackParamList>();
@@ -60,7 +61,7 @@ export default function WasteNavigator() {
 
   return (
     <Stack.Navigator
-      initialRouteName="AddListing" // use "MyListings" once the form works
+      initialRouteName="MyListings" // use "MyListings" once the form works
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -93,6 +94,9 @@ export default function WasteNavigator() {
       </Stack.Screen>
       <Stack.Screen name="RequestCollection" options={{ title: 'Create Collection Request' }}>
         {() => <Placeholder label="Pickup location & schedule" />}
+      </Stack.Screen>
+            <Stack.Screen name="EditListing" options={{ title: 'Edit Listing' }}>
+        {() => <Placeholder label="Edit listing" />}
       </Stack.Screen>
       <Stack.Screen name="ListingDetail" options={{ title: 'Listing' }}>
         {() => <Placeholder label="Listing details" />}

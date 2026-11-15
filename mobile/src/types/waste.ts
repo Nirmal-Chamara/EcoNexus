@@ -1,3 +1,5 @@
+import { apiClient } from '../services/api';
+
 export interface WasteCategory {
   id: number;
   name: string;
@@ -48,4 +50,14 @@ export interface ListingInput {
   pathway?: Pathway;
   status: 'draft' | 'active';
   photos: ListingImage[];
+}
+
+export interface WasteSummary {
+  counts: { active: number; scheduled: number; history: number; drafts: number };
+  recycled_kg: number;
+}
+
+export async function getSummary(): Promise<WasteSummary> {
+  const res = await apiClient.get('/waste/summary');
+  return res.data.data;
 }
