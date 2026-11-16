@@ -38,13 +38,9 @@ export default function App() {
       <AuthProvider>
         <NetworkStatusBanner />
         <ErrorBoundary>
-          <RootNavigator />
-        </ErrorBoundary>
-        <StatusBar style="light" />
-        <View style={styles.root}>
           <AppContent />
-          <StatusBar style="auto" />
-        </View>
+        </ErrorBoundary>
+        <StatusBar style="auto" />
       </AuthProvider>
       {__DEV__ && (
         <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>

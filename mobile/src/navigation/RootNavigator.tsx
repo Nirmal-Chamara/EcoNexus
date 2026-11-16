@@ -6,6 +6,7 @@ import AuthNavigator from './AuthNavigator';
 import PendingVerificationScreen from '../screens/auth/PendingVerificationScreen';
 import RejectedAccountScreen from '../screens/auth/RejectedAccountScreen';
 import OnboardingScreen from '../screens/auth/OnboardingScreen';
+import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 import RoleNavigator from './RoleNavigator';
 import SplashScreen from '../screens/auth/SplashScreen';
 import { hasSeenOnboarding, markOnboardingSeen } from '../services/appPreferences';
@@ -17,22 +18,21 @@ export type { RootFlow } from './rootFlow';
 /**
  * Root flow decision table:
  * loading → Splash
- * signed out + first launch → Onboarding → AuthNavigator
+ * signed out + first launch → Onboarding → RoleSelection → AuthNavigator
  * signed in + pending/rejected/suspended → restricted account state
  * signed in + active → role-specific tab navigator
  */
 export default function RootNavigator() {
   const { status, user, signOut } = useAuth();
-  const [onboardingSeen, setOnboardingSeen] = React.useState<boolean | null>(
-    Platform.OS === 'web' ? true : null
-  );
+  const [onboardingSeen, setOnboardingSeen] = React.useState<boolean | null>(null);
+  const [ftueStep, setFtueStep] = React.useState<'onboarding' | 'roleSelection'>('onboarding');
 
   useEffect(() => {
     if (status !== 'signedOut' || onboardingSeen !== null) return;
     hasSeenOnboarding()
       .then(setOnboardingSeen)
       .catch(() => {
-        setOnboardingSeen(true);
+        setOnboardingSeen(false);
       });
   }, [onboardingSeen, status]);
 
@@ -46,7 +46,7 @@ export default function RootNavigator() {
   }, [signOut, status, user?.status]);
 
   const flow = getRootFlow(status, user, onboardingSeen);
-  const transitionKey = `${flow}:${user?.role ?? 'public'}:${user?.status ?? 'signedOut'}`;
+  const transitionKey = `${flow}:${user?.role ?? 'public'}:${user?.status ?? 'signedOut'}:${ftueStep}`;
   const opacity = useRef(new Animated.Value(1)).current;
   const previousTransitionKey = useRef(transitionKey);
 
@@ -58,7 +58,7 @@ export default function RootNavigator() {
       toValue: 1,
       duration: 180,
       easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [opacity, transitionKey]);
 
@@ -67,17 +67,38 @@ export default function RootNavigator() {
     case 'loading':
     case 'onboarding-loading':
     case 'suspended':
-      screen = <SplashScreen />;
-      break;
-    case 'onboarding':
       screen = (
-        <OnboardingScreen
-          onComplete={async () => {
-            await markOnboardingSeen();
-            setOnboardingSeen(true);
+        <SplashScreen
+          onGetStarted={() => {
+            setOnboardingSeen(false);
+            setFtueStep('onboarding');
           }}
         />
       );
+      break;
+    case 'onboarding':
+      screen =
+        ftueStep === 'onboarding' ? (
+          <OnboardingScreen
+            onComplete={() => setFtueStep('roleSelection')}
+            onSkip={() => setFtueStep('roleSelection')}
+            onSignIn={async () => {
+              await markOnboardingSeen();
+              setOnboardingSeen(true);
+            }}
+          />
+        ) : (
+          <RoleSelectionScreen
+            onProceed={async (selectedRole) => {
+              await markOnboardingSeen();
+              setOnboardingSeen(true);
+            }}
+            onLogin={async () => {
+              await markOnboardingSeen();
+              setOnboardingSeen(true);
+            }}
+          />
+        );
       break;
     case 'signed-out':
       screen = <AuthNavigator />;

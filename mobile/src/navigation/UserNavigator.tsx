@@ -8,6 +8,7 @@ import DashboardScreen from '../screens/user/DashboardScreen';
 import SuggestedCollectorsScreen from '../screens/user/SuggestedCollectorsScreen';
 import CreateWasteListingScreen from '../screens/user/CreateWasteListingScreen';
 import MyListingsScreen from '../screens/user/MyListingsScreen';
+import PickupTrackingScreen from '../screens/user/PickupTrackingScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { TabIcon } from './tabBar';
 
@@ -108,6 +109,15 @@ export default function UserNavigator() {
           tabBarIcon: ({ focused, color, size }) => (
             <TabIcon icon={focused ? 'person' : 'person-outline'} focused={focused} color={color} size={size} />
           ),
+        }}
+      />
+
+      {/* Hidden Track Screen */}
+      <Tab.Screen
+        name="TrackTab"
+        component={PickupTrackingScreen}
+        options={{
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tab.Navigator>
