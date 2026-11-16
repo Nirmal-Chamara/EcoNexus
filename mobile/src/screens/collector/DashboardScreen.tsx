@@ -959,13 +959,13 @@ const styles = StyleSheet.create({
     color: '#A7F3D0',
   },
   launchGpsBtn: {
-    backgroundColor: '#A3E635', // Vibrant Lime button from Figma
+    backgroundColor: '#059669',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
   },
   launchGpsText: {
-    color: '#0A0F0D',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1208,14 +1208,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   instantClaimBtn: {
-    backgroundColor: '#A3E635', // Vibrant lime claim button
+    backgroundColor: '#059669',
     paddingVertical: 12,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   instantClaimText: {
-    color: '#0A0F0D',
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
