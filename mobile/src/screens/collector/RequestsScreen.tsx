@@ -8,13 +8,35 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../../theme/colors';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { onboardingTheme } from '../../theme/onboardingTheme';
+import { radii, spacing } from '../../theme';
 import { pickupService } from '../../services/pickup.service';
 import { collectorService } from '../../services/collector.service';
 import { PickupRequest } from '../../types/collector';
 import * as Location from 'expo-location';
+
+const MATERIAL_CONFIG: Record<string, { emoji: string; bg: string; color: string; border: string }> = {
+  plastic: { emoji: '🧴', bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' },
+  paper: { emoji: '📄', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+  cardboard: { emoji: '📦', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+  metal: { emoji: '🥫', bg: '#F1F5F9', color: '#334155', border: '#CBD5E1' },
+  glass: { emoji: '🍾', bg: '#EFF6FF', color: '#1D4ED8', border: '#BFDBFE' },
+  'e-waste': { emoji: '💻', bg: '#F3E8FF', color: '#6B21A8', border: '#D8B4FE' },
+  multi: { emoji: '📦', bg: '#ECFDF5', color: '#047857', border: '#6EE7B7' },
+};
+
+function getMaterialBadge(type: string) {
+  const lower = (type || '').toLowerCase();
+  for (const [k, v] of Object.entries(MATERIAL_CONFIG)) {
+    if (lower.includes(k)) return v;
+  }
+  return { emoji: '♻️', bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0' };
+}
 
 export default function RequestsScreen() {
   const navigation = useNavigation<any>();
@@ -28,7 +50,7 @@ export default function RequestsScreen() {
   const fetchNearby = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      let lat = 6.9271; // Default Colombo fallback
+      let lat = 6.9271; // Colombo default
       let lng = 79.8612;
 
       if (status === 'granted') {
@@ -37,10 +59,10 @@ export default function RequestsScreen() {
         lng = loc.coords.longitude;
       }
 
-      const results = await pickupService.getNearbyPickups(lat, lng, 10000);
+      const results = await pickupService.getNearbyPickups(lat, lng, 15000);
       setNearbyRequests(results || []);
     } catch {
-      // Fallback
+      // Graceful fallback
     }
   }, []);
 
@@ -49,7 +71,7 @@ export default function RequestsScreen() {
       const results = await collectorService.getAssignedPickups();
       setAssignedPickups(results || []);
     } catch {
-      // Fallback
+      // Graceful fallback
     }
   }, []);
 
@@ -75,19 +97,18 @@ export default function RequestsScreen() {
 
   const handleAcceptRequest = (request: PickupRequest) => {
     Alert.alert(
-      'Accept Pickup',
-      `Are you sure you want to collect ${request.waste_type} at ${request.address_text}?`,
+      'Claim Collection Order',
+      `Assign ${request.waste_type} pickup at ${request.address_text} to your route?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Accept',
+          text: 'Claim & Start Route',
           style: 'default',
           onPress: async () => {
             try {
               setAcceptingId(request.id);
               await pickupService.acceptPickup(request.id);
-              Alert.alert('Success', 'Pickup request claimed! Check your Dashboard or Assigned tab.');
-              // Refresh both
+              Alert.alert('Success 🎉', 'Pickup claimed! Check your "My Pickups" tab to start GPS navigation.');
               fetchNearby();
               fetchAssigned();
             } catch (e: any) {
@@ -102,41 +123,76 @@ export default function RequestsScreen() {
   };
 
   const renderNearbyItem = ({ item }: { item: PickupRequest }) => {
+    const badge = getMaterialBadge(item.waste_type);
     const distanceKm = item.distance_meters
-      ? (item.distance_meters / 1000).toFixed(1) + ' km away'
-      : 'Nearby';
+      ? `${(item.distance_meters / 1000).toFixed(1)} km away`
+      : 'Nearby Sector';
+    const weightNum = Number(item.estimated_weight) || 0;
+    const estPts = Math.round(weightNum * 25);
 
     return (
       <View style={styles.card}>
+        {/* Top Badges Row */}
         <View style={styles.cardHeader}>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{item.waste_type}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+            <Text style={styles.typeBadgeEmoji}>{badge.emoji}</Text>
+            <Text style={[styles.typeBadgeText, { color: badge.color }]}>{item.waste_type}</Text>
           </View>
-          <Text style={styles.distanceText}>📍 {distanceKm}</Text>
+
+          <View style={styles.distanceBadge}>
+            <Ionicons name="location-outline" size={12} color="#059669" />
+            <Text style={styles.distanceText}>{distanceKm}</Text>
+          </View>
         </View>
 
-        <Text style={styles.cardAddress}>{item.address_text}</Text>
+        {/* Address */}
+        <View style={styles.addressRow}>
+          <Ionicons name="home-outline" size={16} color="#059669" style={{ marginTop: 2 }} />
+          <Text style={styles.cardAddress}>{item.address_text}</Text>
+        </View>
 
+        {/* Meta Stats Chips */}
         <View style={styles.metaRow}>
-          {item.estimated_weight ? (
-            <Text style={styles.metaText}>⚖️ {item.estimated_weight} kg</Text>
-          ) : null}
-          <Text style={styles.metaText}>
-            🕒 {new Date(item.created_at).toLocaleDateString()}
-          </Text>
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>⚖️ {weightNum > 0 ? `${weightNum.toFixed(1)} kg` : 'Pre-sorted'}</Text>
+          </View>
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>🪙 ~{estPts > 0 ? estPts : 150} pts</Text>
+          </View>
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>🕒 {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</Text>
+          </View>
         </View>
 
-        {item.notes ? <Text style={styles.notesText}>💬 {item.notes}</Text> : null}
+        {/* Manifest & Instructions */}
+        {item.notes ? (
+          <View style={styles.notesBox}>
+            <Ionicons name="chatbox-ellipses-outline" size={14} color="#64748B" style={{ marginTop: 2 }} />
+            <Text style={styles.notesText} numberOfLines={2}>
+              {item.notes}
+            </Text>
+          </View>
+        ) : null}
 
+        {/* Action Button */}
         <TouchableOpacity
-          style={styles.acceptButton}
+          style={[styles.claimButton, acceptingId === item.id && styles.claimButtonDisabled]}
           disabled={acceptingId === item.id}
           onPress={() => handleAcceptRequest(item)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Claim This Collection"
         >
           {acceptingId === item.id ? (
-            <ActivityIndicator size="small" color={colors.white} />
+            <View style={styles.btnContent}>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.claimButtonText}>Claiming Order...</Text>
+            </View>
           ) : (
-            <Text style={styles.acceptButtonText}>Claim This Collection</Text>
+            <View style={styles.btnContent}>
+              <Ionicons name="checkmark-circle-outline" size={17} color="#FFFFFF" />
+              <Text style={styles.claimButtonText}>Claim This Collection</Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
@@ -144,57 +200,68 @@ export default function RequestsScreen() {
   };
 
   const renderAssignedItem = ({ item }: { item: PickupRequest }) => {
+    const badge = getMaterialBadge(item.waste_type);
+    const isCompleted = item.status === 'COMPLETED';
+
     return (
       <TouchableOpacity
         style={styles.card}
-        activeOpacity={0.8}
+        activeOpacity={0.88}
         onPress={() => navigation.navigate('RequestDetails', { pickupId: item.id })}
       >
         <View style={styles.cardHeader}>
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{item.waste_type}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
+            <Text style={styles.typeBadgeEmoji}>{badge.emoji}</Text>
+            <Text style={[styles.typeBadgeText, { color: badge.color }]}>{item.waste_type}</Text>
           </View>
+
           <View
             style={[
               styles.statusBadge,
-              item.status === 'COMPLETED'
-                ? { backgroundColor: 'rgba(34, 197, 94, 0.2)' }
-                : { backgroundColor: 'rgba(245, 158, 11, 0.2)' },
+              isCompleted
+                ? { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }
+                : { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
             ]}
           >
             <Text
               style={[
                 styles.statusBadgeText,
-                item.status === 'COMPLETED'
-                  ? { color: colors.primary }
-                  : { color: colors.roleCollector },
+                isCompleted ? { color: '#047857' } : { color: '#92400E' },
               ]}
             >
-              {item.status.replace('_', ' ')}
+              {isCompleted ? '✓ Completed' : '⏳ In Progress'}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.cardAddress}>{item.address_text}</Text>
+        <View style={styles.addressRow}>
+          <Ionicons name="navigate-circle-outline" size={16} color="#059669" style={{ marginTop: 2 }} />
+          <Text style={styles.cardAddress}>{item.address_text}</Text>
+        </View>
 
         {item.user_name ? (
           <Text style={styles.customerLine}>
-            👤 Customer: {item.user_name} ({item.user_phone || 'N/A'})
+            👤 Resident: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{item.user_name}</Text>{' '}
+            {item.user_phone ? `(${item.user_phone})` : ''}
           </Text>
         ) : null}
 
         <View style={styles.metaRow}>
           {item.estimated_weight ? (
-            <Text style={styles.metaText}>⚖️ {item.estimated_weight} kg</Text>
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>⚖️ {Number(item.estimated_weight).toFixed(1)} kg</Text>
+            </View>
           ) : null}
-          <Text style={styles.metaText}>
-            Assigned: {new Date(item.assigned_at || item.created_at).toLocaleDateString()}
-          </Text>
+          <View style={styles.metaChip}>
+            <Text style={styles.metaChipText}>
+              Assigned: {new Date(item.assigned_at || item.created_at).toLocaleDateString()}
+            </Text>
+          </View>
         </View>
 
-        <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.05)', paddingTop: 8 }}>
-          <Text style={{ color: colors.roleCollector, fontSize: 12, fontWeight: '600' }}>
-            Tap to view map, navigation & actions →
+        <View style={styles.assignedCardFooter}>
+          <Text style={styles.assignedCardFooterText}>
+            Tap to open live GPS navigation & smart digital scale →
           </Text>
         </View>
       </TouchableOpacity>
@@ -203,34 +270,54 @@ export default function RequestsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
+      {/* ── 1. Top Bar ─────────────────────────────────────────── */}
       <View style={styles.topBar}>
+        <View style={styles.topBadge}>
+          <Ionicons name="radio" size={13} color="#059669" />
+          <Text style={styles.topBadgeText}>SECTOR DISPATCH • LIVE BROADCAST</Text>
+        </View>
         <Text style={styles.screenTitle}>Pickup Requests</Text>
+        <Text style={styles.screenSubtitle}>
+          Open recyclable batches awaiting collection in your sector
+        </Text>
       </View>
 
-      {/* Segment Tabs */}
+      {/* ── 2. Segmented Tabs ─────────────────────────────────── */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity
+        <Pressable
           style={[styles.tabButton, tab === 'NEARBY' && styles.activeTabButton]}
           onPress={() => setTab('NEARBY')}
         >
+          <Ionicons
+            name="compass-outline"
+            size={15}
+            color={tab === 'NEARBY' ? '#065F46' : '#64748B'}
+          />
           <Text style={[styles.tabText, tab === 'NEARBY' && styles.activeTabText]}>
             Nearby ({nearbyRequests.length})
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </Pressable>
+
+        <Pressable
           style={[styles.tabButton, tab === 'ASSIGNED' && styles.activeTabButton]}
           onPress={() => setTab('ASSIGNED')}
         >
+          <Ionicons
+            name="car-outline"
+            size={15}
+            color={tab === 'ASSIGNED' ? '#065F46' : '#64748B'}
+          />
           <Text style={[styles.tabText, tab === 'ASSIGNED' && styles.activeTabText]}>
             My Pickups ({assignedPickups.length})
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
+      {/* ── 3. Content List ─────────────────────────────────────── */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.roleCollector} />
+          <ActivityIndicator size="large" color="#059669" />
+          <Text style={styles.loadingText}>Scanning sector for open requests...</Text>
         </View>
       ) : (
         <FlatList
@@ -238,25 +325,31 @@ export default function RequestsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={tab === 'NEARBY' ? renderNearbyItem : renderAssignedItem}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.roleCollector}
+              tintColor="#059669"
+              colors={['#059669']}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>🍃</Text>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons
+                  name={tab === 'NEARBY' ? 'checkmark-circle-outline' : 'car-outline'}
+                  size={36}
+                  color="#059669"
+                />
+              </View>
               <Text style={styles.emptyTitle}>
-                {tab === 'NEARBY'
-                  ? 'No Open Requests in Your Area'
-                  : 'No Assigned Pickups Yet'}
+                {tab === 'NEARBY' ? 'All Clear in Your Sector!' : 'No Pickups Claimed Yet'}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {tab === 'NEARBY'
-                  ? 'Pull down to refresh or make sure your GPS is enabled.'
-                  : 'Claim nearby requests from the Nearby tab.'}
+                  ? 'All recent pickup requests in this zone have been claimed. Pull down to refresh for new incoming batches.'
+                  : 'Check the "Nearby" tab to accept and schedule your next collection route.'}
               </Text>
             </View>
           }
@@ -269,151 +362,292 @@ export default function RequestsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAF9',
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
+  /* Top Bar */
   topBar: {
-    paddingHorizontal: 20,
-    paddingTop: 54,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
+    paddingBottom: 8,
+  },
+  topBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  topBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
   },
   screenTitle: {
     fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.4,
   },
+  screenSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Segment Tabs */
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: '#EEF2F6',
+    marginHorizontal: spacing.lg,
+    marginVertical: 10,
+    borderRadius: radii.pill,
     padding: 4,
-    borderColor: colors.border,
-    borderWidth: 1,
-    marginBottom: 16,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: radii.pill,
   },
   activeTabButton: {
-    backgroundColor: colors.roleCollector,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
-    color: colors.textMuted,
+    color: '#64748B',
   },
   activeTabText: {
-    color: colors.textInverse,
+    color: '#065F46',
+    fontWeight: '700',
   },
+
+  /* List */
   listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    gap: 14,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 4,
+    paddingBottom: 36,
+    gap: 12,
   },
+
+  /* Request Card */
   card: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+    ...onboardingTheme.cardShadow,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: colors.surfaceAlt,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
-  typeText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
+  typeBadgeEmoji: {
+    fontSize: 13,
+  },
+  typeBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
   },
   distanceText: {
-    color: colors.roleCollector,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
   },
-  statusBadge: {
-    paddingHorizontal: 10,
+
+  /* Address */
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  cardAddress: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 19,
+  },
+
+  /* Customer line */
+  customerLine: {
+    fontSize: 12,
+    color: '#475569',
+  },
+
+  /* Meta Chips */
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  metaChip: {
+    backgroundColor: '#F8FAF9',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  metaChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+
+  /* Notes */
+  notesBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#F8FAF9',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  notesText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#475569',
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
+
+  /* Claim Button */
+  claimButton: {
+    backgroundColor: '#059669',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+    marginTop: 2,
+  },
+  claimButtonDisabled: {
+    backgroundColor: '#047857',
+    opacity: 0.8,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  claimButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+
+  /* Status Badge */
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
   statusBadgeText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  cardAddress: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 8,
+
+  /* Assigned Footer */
+  assignedCardFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
+    marginTop: 2,
   },
-  customerLine: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 6,
+  assignedCardFooterText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
   },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 8,
-  },
-  metaText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  notesText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  acceptButton: {
-    backgroundColor: colors.roleCollector,
-    borderRadius: 10,
-    paddingVertical: 12,
+
+  /* Empty state */
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    gap: 8,
   },
-  acceptButtonText: {
-    color: colors.textInverse,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  emptyContainer: {
-    padding: 40,
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
-  },
-  emptyEmoji: {
-    fontSize: 40,
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontSize: 12.5,
+    color: '#64748B',
     textAlign: 'center',
     lineHeight: 18,
+    maxWidth: 320,
+  },
+
+  /* Loading */
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });
