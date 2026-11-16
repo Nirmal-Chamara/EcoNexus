@@ -19,6 +19,7 @@ import { FormInput } from '../../components/forms/FormInput';
 import { Button } from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { mapApiError } from '../../utils/errorMapper';
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
 const changePasswordSchema = z
@@ -27,7 +28,9 @@ const changePasswordSchema = z
     newPassword: z
       .string()
       .min(8, 'New password must be at least 8 characters')
+      .max(72, 'New password must be 72 characters or fewer')
       .regex(/[A-Z]/, 'Must include at least one uppercase letter')
+      .regex(/[a-z]/, 'Must include at least one lowercase letter')
       .regex(/[0-9]/, 'Must include at least one number'),
     confirmPassword: z.string().min(1, 'Please confirm your new password'),
   })
@@ -48,8 +51,8 @@ function PasswordStrengthBar({ password }: { password: string }) {
     let s = 0;
     if (password.length >= 8) s++;
     if (/[A-Z]/.test(password)) s++;
+    if (/[a-z]/.test(password)) s++;
     if (/[0-9]/.test(password)) s++;
-    if (/[^A-Za-z0-9]/.test(password)) s++;
     return s;
   })();
 
@@ -90,7 +93,6 @@ export default function ChangePasswordScreen() {
   const {
     control,
     handleSubmit,
-    watch,
     formState: { errors },
   } = useForm<ChangePasswordForm>({
     resolver: zodResolver(changePasswordSchema),
@@ -101,8 +103,6 @@ export default function ChangePasswordScreen() {
     },
   });
 
-  const newPasswordValue = watch('newPassword');
-
   const onSubmit = async (data: ChangePasswordForm) => {
     setIsSaving(true);
     try {
@@ -112,22 +112,21 @@ export default function ChangePasswordScreen() {
       });
       // Server increments token_version → all existing sessions are invalidated.
       // Force the user to log in again with the new password.
+      await signOut();
       Alert.alert(
         'Password Changed',
         'Your password has been updated. Please sign in again with your new password.',
-        [
-          {
-            text: 'Sign Out',
-            onPress: () => signOut(),
-          },
-        ],
+        undefined,
         { cancelable: false }
       );
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ??
-        'Failed to change password. Please check your current password and try again.';
-      Alert.alert('Error', message);
+    } catch (error: unknown) {
+      Alert.alert(
+        'Error',
+        mapApiError(
+          error,
+          'Failed to change password. Please check your current password and try again.'
+        )
+      );
     } finally {
       setIsSaving(false);
     }

@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import { AuthUser } from '../types/user';
+import type { User } from '../types/user';
 
 export interface UpdateProfileInput {
   name?: string;
@@ -13,10 +13,7 @@ export interface ChangePasswordInput {
 
 export interface UserProfileResponse {
   message: string;
-  data: AuthUser & {
-    created_at: string;
-    updated_at: string;
-  };
+  data: User;
 }
 
 export const userService = {

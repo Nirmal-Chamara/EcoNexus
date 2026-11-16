@@ -19,4 +19,7 @@ export const env = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASSWORD: process.env.SMTP_PASSWORD || '',
   EMAIL_FROM: process.env.EMAIL_FROM || '',
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '',
 };

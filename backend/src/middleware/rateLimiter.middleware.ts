@@ -16,6 +16,26 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Dedicated Rate Limiter for Password Reset Requests (Workstream PW-04)
+ * Allows 3 requests per 15 minutes per IP to prevent email spam / enumeration
+ */
+export const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, _res, next) => {
+    next(
+      new AppError(
+        429,
+        'Too many password reset requests from this IP. Please try again after 15 minutes.',
+        'RATE_LIMIT_EXCEEDED'
+      )
+    );
+  },
+});
+
+/**
  * General API Rate Limiter
  * Allows 100 requests per 15 minutes per IP
  */

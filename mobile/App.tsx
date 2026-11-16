@@ -1,43 +1,71 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Platform, DevSettings, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import WasteNavigator from './src/navigation/WasteNavigator';
+import { AuthProvider } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
+import RootNavigator from './src/navigation/RootNavigator';
+import NetworkStatusBanner from './src/components/common/NetworkStatusBanner';
+import ThemePreviewScreen from './src/screens/dev/ThemePreviewScreen';
+import ComponentGalleryScreen from './src/screens/dev/ComponentGalleryScreen';
 import { tokenStorage } from './src/services/tokenStorage';
 
-// LOCAL TESTING ONLY. Do not commit this file.
-// Waits for AuthProvider's session restore to finish (it clears tokens when
-// /users/me fails against my temporary users table), then saves the dev token.
-function DevGate() {
-  const { status } = useAuth();
-  const [ready, setReady] = useState(false);
-
+function AppContent() {
   useEffect(() => {
-    if (status === 'loading') return;
-    (async () => {
-      const t = process.env.EXPO_PUBLIC_DEV_TOKEN;
-      if (t) await tokenStorage.saveTokens(t, 'dev-refresh');
-      setReady(true);
-    })();
-  }, [status]);
+    // Optional local development override: if EXPO_PUBLIC_DEV_TOKEN is configured
+    const devToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
+    if (devToken) {
+      tokenStorage.saveTokens(devToken, 'dev-refresh').catch(() => {});
+    }
+  }, []);
 
-  if (!ready) return null;
-
-  return (
-    <NavigationContainer>
-      <WasteNavigator />
-    </NavigationContainer>
-  );
+  return <RootNavigator />;
 }
 
 export default function App() {
+  const [showTokens, setShowTokens] = React.useState(false);
+  const [showComponents, setShowComponents] = React.useState(false);
+
+  React.useEffect(() => {
+    if (__DEV__ && DevSettings?.addMenuItem) {
+      DevSettings.addMenuItem('EcoNexus design tokens', () => setShowTokens(true));
+      DevSettings.addMenuItem('EcoNexus component gallery', () => setShowComponents(true));
+    }
+  }, []);
+
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={styles.root}>
       <AuthProvider>
-        <DevGate />
+        <NetworkStatusBanner />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
         <StatusBar style="auto" />
       </AuthProvider>
+      {__DEV__ && (
+        <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>
+          <SafeAreaProvider>
+            <ComponentGalleryScreen onClose={() => setShowComponents(false)} />
+            <StatusBar style="light" />
+          </SafeAreaProvider>
+        </Modal>
+      )}
+      {__DEV__ && (
+        <Modal visible={showTokens} onRequestClose={() => setShowTokens(false)}>
+          <SafeAreaProvider>
+            <ThemePreviewScreen onClose={() => setShowTokens(false)} />
+            <StatusBar style="dark" />
+          </SafeAreaProvider>
+        </Modal>
+      )}
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+});

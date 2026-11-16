@@ -11,7 +11,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AdminUser, VerificationRequest } from '../services/admin.service';
+import type { AdminUser, VerificationRequest } from '../services/admin.service';
 import UserListScreen from '../screens/admin/UserListScreen';
 import UserDetailScreen from '../screens/admin/UserDetailScreen';
 import VerificationQueueScreen from '../screens/admin/VerificationQueueScreen';

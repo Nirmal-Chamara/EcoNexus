@@ -1,15 +1,8 @@
-import { Pool } from 'pg';
-import { env } from './env';
+import { pool } from './database';
 
-export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
-});
-
-pool.on('error', (err) => {
-  console.error('[PostgreSQL Pool Error]:', err);
-});
+export { pool };
 
 export const db = {
-  query: (text: string, params?: any[]) => pool.query(text, params),
+  query: (text: string, params?: unknown[]) => pool.query(text, params),
   getClient: () => pool.connect(),
 };

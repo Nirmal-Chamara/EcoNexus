@@ -41,15 +41,18 @@ export interface WasteListing {
 // What we send when creating or editing a listing
 export interface ListingInput {
   categoryId: number;
+  title?: string;
   description?: string;
   quantity: number;
   unit: 'kg' | 'items';
-  containerSize: ContainerSize;
-  isCleaned: boolean;
-  isSorted: boolean;
+  condition?: string;
+  containerSize?: ContainerSize;
+  isCleaned?: boolean;
+  isSorted?: boolean;
   pathway?: Pathway;
-  status: 'draft' | 'active';
-  photos: ListingImage[];
+  status?: 'draft' | 'active';
+  photos?: ListingImage[];
+  imageUrls?: string[];
 }
 
 export interface WasteSummary {

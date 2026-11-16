@@ -18,7 +18,7 @@ export type WasteStackParamList = {
   Kit: undefined;
   MyListings: undefined;
   Categories: undefined;
-  AddListing: undefined;
+  AddListing: { categoryId?: number; categoryName?: string } | undefined;
   RequestCollection: { listingIds: string[] };
   ListingDetail: { id: string };
   EditListing: { id: string };
@@ -26,10 +26,23 @@ export type WasteStackParamList = {
 
 const Stack = createNativeStackNavigator<WasteStackParamList>();
 
+const styles = StyleSheet.create({
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAF9',
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#475569',
+  },
+});
+
 function Placeholder({ label }: { label: string }) {
   return (
     <View style={styles.centerContainer}>
-      <Text>{label} (coming next)</Text>
+      <Text style={styles.placeholderText}>{label}</Text>
     </View>
   );
 }
@@ -37,7 +50,13 @@ function Placeholder({ label }: { label: string }) {
 function CategoriesRoute({
   navigation,
 }: NativeStackScreenProps<WasteStackParamList, 'Categories'>) {
-  return <WasteCategoryScreen onSelect={() => navigation.navigate('AddListing')} />;
+  return (
+    <WasteCategoryScreen
+      onSelect={(c) =>
+        navigation.navigate('AddListing', { categoryId: c.id, categoryName: c.name })
+      }
+    />
+  );
 }
 
 export default function WasteNavigator() {
@@ -61,7 +80,7 @@ export default function WasteNavigator() {
 
   return (
     <Stack.Navigator
-      initialRouteName="MyListings" // use "MyListings" once the form works
+      initialRouteName="MyListings"
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerShadowVisible: false,
@@ -95,7 +114,7 @@ export default function WasteNavigator() {
       <Stack.Screen name="RequestCollection" options={{ title: 'Create Collection Request' }}>
         {() => <Placeholder label="Pickup location & schedule" />}
       </Stack.Screen>
-            <Stack.Screen name="EditListing" options={{ title: 'Edit Listing' }}>
+      <Stack.Screen name="EditListing" options={{ title: 'Edit Listing' }}>
         {() => <Placeholder label="Edit listing" />}
       </Stack.Screen>
       <Stack.Screen name="ListingDetail" options={{ title: 'Listing' }}>
@@ -104,11 +123,3 @@ export default function WasteNavigator() {
     </Stack.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

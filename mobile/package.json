@@ -7,7 +7,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "web": "expo start --web",
     "test": "jest --runInBand",
+    "test:coverage": "jest --coverage --runInBand",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
@@ -16,7 +18,8 @@
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/poppins": "^0.4.1",
-    "@expo/vector-icons": "^15.0.2",
+    "@expo/metro-runtime": "~57.0.17",
+    "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.9.1",
     "@react-native-community/slider": "5.2.0",
     "@react-navigation/bottom-tabs": "^6.5.20",
@@ -25,6 +28,8 @@
     "@types/react": "~19.2.4",
     "axios": "^1.7.2",
     "expo": "~57.0.31",
+    "expo-auth-session": "^58.0.17",
+    "expo-crypto": "^58.0.7",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.20",
     "expo-local-authentication": "~57.0.3",
@@ -32,12 +37,15 @@
     "expo-notifications": "~57.0.18",
     "expo-secure-store": "^57.0.4",
     "expo-status-bar": "~57.0.1",
+    "expo-web-browser": "^58.0.7",
     "react": "19.2.3",
+    "react-dom": "^19.2.3",
     "react-hook-form": "^7.89.0",
     "react-native": "^0.86.3",
     "react-native-maps": "1.27.2",
-    "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "~4.26.0",
+    "react-native-safe-area-context": "^5.10.1",
+    "react-native-screens": "^4.29.0",
+    "react-native-web": "^0.21.4",
     "socket.io-client": "^4.7.5",
     "typescript": "~6.0.3",
     "zod": "^3.25.76",
@@ -66,6 +74,26 @@
     "preset": "jest-expo",
     "testMatch": [
       "**/src/__tests__/**/*.test.ts"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      },
+      "./src/api/": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      },
+      "./src/schemas/": {
+        "statements": 70,
+        "branches": 70,
+        "functions": 70,
+        "lines": 70
+      }
+    }
   }
 }

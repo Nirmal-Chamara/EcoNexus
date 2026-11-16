@@ -1,5 +1,4 @@
 import type { TextStyle } from 'react-native';
-
 // Font families (Poppins for headings/numbers/buttons, Inter for everything else)
 export const fontFamily = {
   heading: 'Poppins_700Bold',
@@ -39,53 +38,53 @@ export const lineHeight = {
 // Preset text styles
 export const typography = {
   displayLarge: {
-    fontFamily: fontFamily.heading,
     fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.bold,
     lineHeight: fontSize['3xl'] * 1.2,
   } as TextStyle,
   displayMedium: {
-    fontFamily: fontFamily.heading,
     fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.bold,
     lineHeight: fontSize['2xl'] * 1.2,
   } as TextStyle,
   h1: {
-    fontFamily: fontFamily.heading,
     fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
     lineHeight: fontSize.xl * 1.25,
   } as TextStyle,
   h2: {
-    fontFamily: fontFamily.headingSemi,
     fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
     lineHeight: fontSize.lg * 1.3,
   } as TextStyle,
   h3: {
-    fontFamily: fontFamily.headingSemi,
     fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
     lineHeight: fontSize.md * 1.4,
   } as TextStyle,
   body: {
-    fontFamily: fontFamily.body,
     fontSize: fontSize.base,
+    fontWeight: fontWeight.regular,
     lineHeight: fontSize.base * 1.5,
   } as TextStyle,
   bodyMedium: {
-    fontFamily: fontFamily.bodyMedium,
     fontSize: fontSize.base,
+    fontWeight: fontWeight.medium,
     lineHeight: fontSize.base * 1.5,
   } as TextStyle,
   label: {
-    fontFamily: fontFamily.bodyMedium,
     fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     lineHeight: fontSize.sm * 1.4,
   } as TextStyle,
   caption: {
-    fontFamily: fontFamily.body,
     fontSize: fontSize.xs,
+    fontWeight: fontWeight.regular,
     lineHeight: fontSize.xs * 1.4,
   } as TextStyle,
   button: {
-    fontFamily: fontFamily.headingSemi,
     fontSize: fontSize.base,
+    fontWeight: fontWeight.semibold,
     lineHeight: fontSize.base * 1.2,
   } as TextStyle,
 };

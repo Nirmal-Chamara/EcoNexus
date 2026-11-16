@@ -28,6 +28,12 @@ export const updateUserStatusSchema = z.object({
   }).strict(),
 });
 
+export const adminUserIdSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid user ID'),
+  }),
+});
+
 export const verificationQuerySchema = z.object({
   query: z.object({
     status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional(),

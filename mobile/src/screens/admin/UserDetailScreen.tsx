@@ -12,7 +12,7 @@
  *  • Back button with slide animation
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -23,13 +23,14 @@ import {
   View,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { adminService } from '../../services/admin.service';
-import type { AdminUser } from '../../services/admin.service';
+import type { AdminUserDetail } from '../../services/admin.service';
 import type { AdminUsersStackParamList } from '../../navigation/AdminStackNavigator';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -124,6 +125,13 @@ function formatDate(iso: string): string {
   }
 }
 
+function getActivityLabel(action: string): string {
+  return action
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 // ─── InfoRow ─────────────────────────────────────────────────────────────────
 
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
@@ -198,35 +206,71 @@ export default function UserDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RoutePropType>();
 
-  const [user, setUser] = useState<AdminUser>(route.params.user);
+  const [user, setUser] = useState<AdminUserDetail>(() => ({
+    ...route.params.user,
+    updated_at: route.params.user.created_at,
+    activity: [],
+  }));
   const [loadingAction, setLoadingAction] = useState<AccountStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [suspensionModalVisible, setSuspensionModalVisible] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    setLoadingProfile(true);
+    adminService
+      .getUser(route.params.user.id)
+      .then((response) => {
+        if (active) setUser(response.data);
+      })
+      .catch((error: unknown) => {
+        if (active) setError(mapApiError(error, 'Could not load the latest user details.'));
+      })
+      .finally(() => {
+        if (active) setLoadingProfile(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [route.params.user.id]);
 
   // ── Status Change ──────────────────────────────────────────────────────────
   const changeStatus = useCallback(
     (newStatus: AccountStatus, confirmMessage: string, reason?: string) => {
       if (user.status === newStatus) return;
 
+      const executeAction = async () => {
+        try {
+          setLoadingAction(newStatus);
+          setError(null);
+          const res = await adminService.updateUserStatus(user.id, newStatus, reason);
+          // Merge updated fields (backend returns id, name, email, status, role)
+          setUser((prev) => ({ ...prev, ...res.data, status: newStatus }));
+        } catch (error: unknown) {
+          setError(mapApiError(error, 'Action failed. Please try again.'));
+        } finally {
+          setLoadingAction(null);
+        }
+      };
+
+      if (Platform.OS === 'web') {
+        const confirmed = typeof window !== 'undefined' ? window.confirm(`Confirm Action:\n\n${confirmMessage}`) : true;
+        if (confirmed) {
+          void executeAction();
+        }
+        return;
+      }
+
       Alert.alert('Confirm Action', confirmMessage, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
           style: newStatus === 'ACTIVE' ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              setLoadingAction(newStatus);
-              setError(null);
-              const res = await adminService.updateUserStatus(user.id, newStatus, reason);
-              // Merge updated fields (backend returns id, name, email, status, role)
-              setUser((prev) => ({ ...prev, ...res.data, status: newStatus }));
-            } catch (error: unknown) {
-              setError(mapApiError(error, 'Action failed. Please try again.'));
-            } finally {
-              setLoadingAction(null);
-            }
-          },
+          onPress: executeAction,
         },
       ]);
     },
@@ -308,6 +352,37 @@ export default function UserDetailScreen() {
         </View>
 
         {/* ── Error Banner ─────────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Activity Summary</Text>
+          {loadingProfile ? (
+            <View style={styles.activityLoading}>
+              <ActivityIndicator color={colors.roleAdmin} size="small" />
+              <Text style={styles.sectionHint}>Loading recent activity...</Text>
+            </View>
+          ) : user.activity.length === 0 ? (
+            <View style={styles.activityEmpty}>
+              <Text style={styles.activityEmptyText}>No admin activity recorded yet.</Text>
+            </View>
+          ) : (
+            <View style={styles.activityCard}>
+              {user.activity.slice(0, 5).map((activity, index) => (
+                <React.Fragment key={activity.id}>
+                  {index > 0 ? <View style={styles.divider} /> : null}
+                  <View style={styles.activityRow}>
+                    <View style={styles.activityDot} />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityAction}>{getActivityLabel(activity.action)}</Text>
+                      <Text style={styles.activityMeta}>
+                        {activity.actor_name} - {formatDate(activity.created_at)}
+                      </Text>
+                    </View>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+          )}
+        </View>
+
         {error ? (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -433,34 +508,38 @@ export default function UserDetailScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: '#F8FAF9' },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 48 },
 
   // Top bar
   topBar: {
-    paddingTop: 56,
-    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingHorizontal: 16,
     paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  backArrow: { fontSize: 26, color: colors.roleAdmin, lineHeight: 30, marginRight: 2 },
-  backLabel: { ...typography.bodyMedium, color: colors.roleAdmin },
+  backArrow: { fontSize: 26, color: '#059669', lineHeight: 30, marginRight: 2 },
+  backLabel: { fontSize: 14, fontWeight: '700', color: '#059669' },
 
   // Avatar Card
   avatarCard: {
-    marginHorizontal: 24,
+    marginHorizontal: 16,
     marginTop: 8,
-    marginBottom: 24,
-    backgroundColor: colors.surface,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
-    paddingVertical: 28,
+    paddingVertical: 24,
     paddingHorizontal: 20,
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   avatarRing: {
     width: 88,
@@ -469,7 +548,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   avatar: {
     width: 76,
@@ -479,8 +558,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitials: { fontSize: 28, fontWeight: '700' },
-  userName: { ...typography.h2, color: colors.textPrimary, marginBottom: 4 },
-  userEmail: { ...typography.label, color: colors.textMuted, marginBottom: 14 },
+  userName: { fontSize: 20, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
+  userEmail: { fontSize: 13, color: '#64748B', marginBottom: 14 },
   badgeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   badge: {
     flexDirection: 'row',
@@ -492,32 +571,37 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
-  badgeText: { ...typography.caption, fontWeight: '600' },
+  badgeText: { fontSize: 11, fontWeight: '600' },
 
   // Sections
-  section: { marginHorizontal: 24, marginBottom: 20 },
+  section: { marginHorizontal: 16, marginBottom: 20 },
   sectionTitle: {
-    ...typography.label,
-    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 8,
     marginLeft: 4,
   },
   sectionHint: {
-    ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: '#64748B',
     marginBottom: 12,
     marginLeft: 4,
   },
 
   // Info Card
   infoCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOpacity: 0.03,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
   infoRow: {
     flexDirection: 'row',
@@ -528,22 +612,59 @@ const styles = StyleSheet.create({
   },
   infoIcon: { fontSize: 18, width: 24, textAlign: 'center' },
   infoContent: { flex: 1 },
-  infoLabel: { ...typography.caption, color: colors.textMuted, marginBottom: 2 },
-  infoValue: { ...typography.bodyMedium, color: colors.textPrimary },
-  divider: { height: 1, backgroundColor: colors.border, marginLeft: 52 },
+  infoLabel: { fontSize: 11, color: '#64748B', marginBottom: 2, fontWeight: '500' },
+  infoValue: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
+  divider: { height: 1, backgroundColor: '#E2E8F0', marginLeft: 52 },
+  activityCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  activityLoading: {
+    minHeight: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  activityEmpty: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+  },
+  activityEmptyText: { fontSize: 13, color: '#64748B' },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#059669',
+  },
+  activityContent: { flex: 1 },
+  activityAction: { fontSize: 13, fontWeight: '600', color: '#0F172A' },
+  activityMeta: { fontSize: 11, color: '#64748B', marginTop: 2 },
 
   // Error
   errorBanner: {
-    backgroundColor: colors.errorSurface,
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: colors.error + '44',
-    marginHorizontal: 24,
+    borderColor: '#FECACA',
+    marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  errorText: { ...typography.label, color: colors.error },
+  errorText: { fontSize: 12, color: '#DC2626' },
 
   // Actions
   actionsGrid: { gap: 10 },
@@ -552,6 +673,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 14,
     borderWidth: 1,
+    backgroundColor: '#FFFFFF',
     paddingVertical: 14,
     paddingHorizontal: 16,
     gap: 14,
@@ -559,56 +681,57 @@ const styles = StyleSheet.create({
   actionBtnDisabled: { opacity: 0.35 },
   actionIcon: { fontSize: 22, width: 28, textAlign: 'center' },
   actionContent: { flex: 1 },
-  actionLabel: { ...typography.bodyMedium, fontWeight: '600' },
-  actionSublabel: { ...typography.caption, color: colors.textMuted, marginTop: 1 },
+  actionLabel: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  actionSublabel: { fontSize: 11, color: '#64748B', marginTop: 1 },
 
   // Admin protected
   adminProtectedBanner: {
-    backgroundColor: colors.roleAdmin + '11',
+    backgroundColor: '#DCFCE7',
     borderWidth: 1,
-    borderColor: colors.roleAdmin + '33',
-    marginHorizontal: 24,
+    borderColor: '#A7F3D0',
+    marginHorizontal: 16,
     marginBottom: 20,
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
   },
-  adminProtectedText: { ...typography.label, color: colors.roleAdmin, textAlign: 'center' },
+  adminProtectedText: { fontSize: 12, fontWeight: '600', color: '#047857', textAlign: 'center' },
 
   // Footer
   footer: {
-    ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: '#94A3B8',
     textAlign: 'center',
     marginTop: 8,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: colors.overlay,
-    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 20,
   },
   modalCard: {
     padding: 20,
     borderRadius: 18,
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
   },
-  modalTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: 8 },
-  modalHint: { ...typography.caption, color: colors.textSecondary, marginBottom: 14 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
+  modalHint: { fontSize: 12, color: '#64748B', marginBottom: 14 },
   reasonInput: {
-    ...typography.body,
-    color: colors.textPrimary,
+    fontSize: 13,
+    color: '#0F172A',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     borderRadius: 10,
+    backgroundColor: '#F8FAF9',
     padding: 12,
     minHeight: 84,
     marginBottom: 14,
     textAlignVertical: 'top',
   },
   modalCancel: { alignItems: 'center', paddingVertical: 14 },
-  modalCancelText: { ...typography.bodyMedium, color: colors.textMuted },
+  modalCancelText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
 });

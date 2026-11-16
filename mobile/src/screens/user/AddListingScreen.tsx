@@ -22,7 +22,8 @@ type Condition = 'clean' | 'dirty' | 'damaged' | 'reusable';
 const CONDITIONS: Condition[] = ['clean', 'dirty', 'damaged', 'reusable'];
 
 export default function AddListingScreen({ route, navigation }: Props) {
-  const { categoryId, categoryName } = route.params;
+  const categoryId = route?.params?.categoryId ?? 1;
+  const categoryName = route?.params?.categoryName ?? 'General';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
