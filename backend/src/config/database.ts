@@ -1,5 +1,6 @@
 import { Pool, PoolConfig } from 'pg';
 import { env } from './env';
+import { isReleaseEnvironment } from './environment';
 
 const poolConfig: PoolConfig = {
   connectionString: env.DATABASE_URL,
@@ -9,9 +10,10 @@ const poolConfig: PoolConfig = {
 };
 
 // Enforce verified TLS in production if not disabled explicitly
-if (env.NODE_ENV === 'production') {
+if (isReleaseEnvironment(env.NODE_ENV)) {
   poolConfig.ssl = {
-    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+    rejectUnauthorized: true,
+    ...(env.DATABASE_SSL_CA ? { ca: env.DATABASE_SSL_CA } : {}),
   };
 } else if (env.DATABASE_URL.includes('sslmode=require')) {
   poolConfig.ssl = { rejectUnauthorized: false };

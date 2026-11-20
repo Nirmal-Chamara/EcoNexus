@@ -5,6 +5,7 @@ export interface AuthUser {
   id: string;
   role: UserRole;
   status: AccountStatus;
+  emailVerified: boolean;
 }
 
 declare global {

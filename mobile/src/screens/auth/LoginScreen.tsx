@@ -35,7 +35,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-  const { signIn, devLogin, logoutReason, dismissLogoutReason } = useAuth();
+  const { signIn, logoutReason, dismissLogoutReason } = useAuth();
   const {
     promptGoogleSignIn,
     isLoading: isGoogleLoading,
@@ -147,6 +147,8 @@ export default function LoginScreen({ navigation }: Props) {
             message={
               logoutReason === 'SUSPENDED'
                 ? 'Your account is suspended or disabled. Contact support.'
+                : logoutReason === 'SIGN_IN_METHOD_CHANGED'
+                ? 'Google is connected. Please sign in again with Google or your password.'
                 : 'Your session has expired. Please sign in again.'
             }
           />
@@ -393,21 +395,6 @@ export default function LoginScreen({ navigation }: Props) {
             </Text>
           </Pressable>
 
-          <Pressable
-            style={{
-              paddingVertical: 8,
-              paddingHorizontal: 16,
-              borderRadius: 20,
-              backgroundColor: '#ECFDF5',
-              borderWidth: 1,
-              borderColor: '#10B981',
-            }}
-            onPress={() => devLogin?.('COLLECTOR')}
-          >
-            <Text style={{ color: '#047857', fontSize: 12, fontWeight: '800' }}>
-              ⚡ Instant Look (Collector Dashboard) →
-            </Text>
-          </Pressable>
         </View>
 
         {/* Security Footnote */}

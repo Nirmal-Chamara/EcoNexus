@@ -3,13 +3,26 @@ import { ZodSchema, ZodError } from 'zod';
 import { AppError } from '../utils/AppError';
 
 export function validateRequest(schema: ZodSchema) {
-  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  return async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     try {
-      await schema.parseAsync({
+      const parsed = (await schema.parseAsync({
         body: req.body,
         query: req.query,
         params: req.params,
-      });
+      })) as {
+        body?: Request['body'];
+        query?: Request['query'];
+        params?: Request['params'];
+      };
+      // Controllers must consume the validated result, including defaults,
+      // normalization and stripped unknown fields, rather than the raw input.
+      if (parsed.body !== undefined) req.body = parsed.body;
+      if (parsed.query !== undefined) req.query = parsed.query;
+      if (parsed.params !== undefined) req.params = parsed.params;
       next();
     } catch (error) {
       if (error instanceof ZodError) {

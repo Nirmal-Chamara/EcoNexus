@@ -25,11 +25,11 @@ function getGoogleClientId(): string {
   if (Platform.OS === 'web') {
     return env.GOOGLE_WEB_CLIENT_ID || '';
   }
-  if (Platform.OS === 'ios' && env.GOOGLE_IOS_CLIENT_ID) {
-    return env.GOOGLE_IOS_CLIENT_ID;
+  if (Platform.OS === 'ios') {
+    return env.GOOGLE_IOS_CLIENT_ID || '';
   }
-  if (Platform.OS === 'android' && env.GOOGLE_ANDROID_CLIENT_ID) {
-    return env.GOOGLE_ANDROID_CLIENT_ID;
+  if (Platform.OS === 'android') {
+    return env.GOOGLE_ANDROID_CLIENT_ID || '';
   }
   return env.GOOGLE_WEB_CLIENT_ID || '';
 }
@@ -60,13 +60,14 @@ export interface UseGoogleAuthResult {
   isConfigured: boolean;
 }
 
-export function useGoogleAuth(): UseGoogleAuthResult {
+export function useGoogleAuth(options?: { onIdentity?: (idToken: string, nonce: string) => Promise<void> }): UseGoogleAuthResult {
   const { signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clientId = getGoogleClientId();
   const isConfigured = Boolean(clientId);
+  const onIdentity = options?.onIdentity;
 
   const promptGoogleSignIn = useCallback(
     async (keepSignedIn = true, role?: string): Promise<void> => {
@@ -83,9 +84,7 @@ export function useGoogleAuth(): UseGoogleAuthResult {
             console.log('  Client ID:', activeClientId);
             console.log('  Redirect URI:', redirectUri);
           }
-          const nonce = typeof Crypto.randomUUID === 'function'
-            ? Crypto.randomUUID()
-            : Math.random().toString(36).substring(2) + Date.now().toString(36);
+          const nonce = Crypto.randomUUID();
 
           const request = await AuthSession.loadAsync(
             {
@@ -100,6 +99,7 @@ export function useGoogleAuth(): UseGoogleAuthResult {
               usePKCE: false,
               extraParams: {
                 nonce,
+                prompt: 'select_account',
               },
             },
             GOOGLE_DISCOVERY
@@ -117,22 +117,17 @@ export function useGoogleAuth(): UseGoogleAuthResult {
             if (!idToken) {
               throw new Error('No ID token returned from Google.');
             }
-            await signInWithGoogle(idToken, keepSignedIn, role);
+            if (onIdentity) await onIdentity(idToken, nonce);
+            else await signInWithGoogle(idToken, keepSignedIn, role, nonce);
             return;
           }
 
           if (result.type === 'error') {
             throw new Error(result.error?.message || 'Google authentication failed.');
           }
-        } else if (env.IS_DEV) {
-          await signInWithGoogle(
-            'mock-google-token:demo.user@econexus.com:EcoNexus Demo User',
-            keepSignedIn,
-            role
-          );
         } else {
           throw new Error(
-            'Google Sign-In is not configured. Please define EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in .env'
+            'Google Sign-In is not configured for this platform. Please use email sign-in.'
           );
         }
       } catch (err: unknown) {
@@ -141,7 +136,7 @@ export function useGoogleAuth(): UseGoogleAuthResult {
         setLoading(false);
       }
     },
-    [signInWithGoogle]
+    [signInWithGoogle, onIdentity]
   );
 
   return {

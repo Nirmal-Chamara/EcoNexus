@@ -27,7 +27,7 @@ export const authService = {
   /**
    * Login or register using Google OAuth ID token.
    */
-  async loginWithGoogle(idToken: string, role?: string): Promise<AuthResponse> {
+  async loginWithGoogle(idToken: string, role?: string, nonce?: string): Promise<AuthResponse> {
     const mappedRole =
       role === 'center' || role === 'RECYCLING_CENTER'
         ? 'RECYCLING_CENTER'
@@ -38,6 +38,7 @@ export const authService = {
     const response = await apiClient.post<ApiEnvelope<AuthResponse>>('/auth/google', {
       idToken,
       role: mappedRole,
+      ...(nonce ? { nonce } : {}),
     });
     return response.data.data;
   },
@@ -66,8 +67,8 @@ export const authService = {
     await apiClient.post<{ message: string }>('/auth/logout-all');
   },
 
-  async requestPasswordReset(email: string): Promise<{ message: string; devResetToken?: string }> {
-    const response = await apiClient.post<{ message: string; devResetToken?: string }>(
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(
       '/auth/forgot-password',
       { email }
     );
@@ -76,5 +77,11 @@ export const authService = {
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
     await apiClient.post<{ message: string }>('/auth/reset-password', { token, newPassword });
+  },
+  async requestEmailVerification(): Promise<void> {
+    await apiClient.post('/auth/email-verification/request');
+  },
+  async confirmEmailVerification(token: string): Promise<void> {
+    await apiClient.post('/auth/email-verification/confirm', { token });
   },
 };

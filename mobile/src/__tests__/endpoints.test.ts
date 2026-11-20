@@ -35,8 +35,12 @@ const cases: [string, string, () => Promise<unknown>][] = [
   ['POST', '/auth/logout', () => authApi.logout('refresh')],
   ['POST', '/auth/logout-all', () => authApi.logoutAll()],
   ['POST', '/auth/forgot-password', () => authApi.requestPasswordReset('a@example.com')],
+  ['POST', '/auth/email-verification/request', () => authApi.requestEmailVerification()],
+  ['POST', '/auth/email-verification/confirm', () => authApi.confirmEmailVerification('a'.repeat(64))],
   ['POST', '/auth/reset-password', () => authApi.resetPassword('reset', 'Password1')],
   ['GET', '/users/me', () => usersApi.getMe()],
+  ['GET', '/users/me/sign-in-methods', () => usersApi.getSignInMethods()],
+  ['POST', '/users/me/google-link', () => usersApi.linkGoogle({ idToken: 'provider-proof', currentPassword: 'CurrentPassword1', nonce: 'request-nonce-123456789' })],
   ['PATCH', '/users/me', () => usersApi.updateMe({ name: 'Changed' })],
   [
     'PATCH',

@@ -1,24 +1,71 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/auth.service';
 import { AppError } from '../utils/AppError';
+import { EmailChallengeService } from '../services/email-challenge.service';
 
 export class AuthController {
-  static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async requestEmailVerification(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      const devToken = await AuthService.requestPasswordReset(req.body.email);
-      res.status(202).json({
-        message: 'If an account exists for that email, a reset code will be sent.',
-        ...(devToken ? { devResetToken: devToken } : {}),
-      });
+      if (!req.user) throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+      await EmailChallengeService.requestVerification(req.user.id);
+      res
+        .status(202)
+        .json({
+          message:
+            'If verification is needed, an email is queued for delivery.',
+        });
     } catch (error) {
       next(error);
     }
   }
+  static async confirmEmailVerification(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      if (!req.user) throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+      await EmailChallengeService.confirm(req.user.id, req.body.token);
+      res
+        .status(200)
+        .json({ message: 'Email verified. Refresh your profile to continue.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+  static async forgotPassword(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      await AuthService.requestPasswordReset(req.body.email);
+      res.status(202).json({
+        message:
+          'If this account supports password recovery, instructions will be emailed.',
+      });
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'EMAIL_NOT_CONFIGURED') { next(error); return; }
+      // A per-account enqueue failure must not reveal whether the email exists.
+      console.error('Password recovery request could not be queued');
+      res.status(202).json({ message: 'If this account supports password recovery, instructions will be emailed.' });
+    }
+  }
 
-  static async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async resetPassword(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       await AuthService.resetPassword(req.body.token, req.body.newPassword);
-      res.status(200).json({ message: 'Password reset successfully. Please sign in.' });
+      res
+        .status(200)
+        .json({ message: 'Password reset successfully. Please sign in.' });
     } catch (error) {
       next(error);
     }
@@ -27,7 +74,11 @@ export class AuthController {
   /**
    * POST /api/auth/google
    */
-  static async googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async googleLogin(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const result = await AuthService.loginWithGoogle(req.body);
       res.status(200).json({
@@ -42,7 +93,11 @@ export class AuthController {
   /**
    * POST /api/auth/register
    */
-  static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async register(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const result = await AuthService.register(req.body);
       res.status(201).json({
@@ -57,7 +112,11 @@ export class AuthController {
   /**
    * POST /api/auth/login
    */
-  static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async login(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const result = await AuthService.login(req.body);
       res.status(200).json({
@@ -72,7 +131,11 @@ export class AuthController {
   /**
    * POST /api/auth/refresh-token
    */
-  static async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async refreshToken(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { refreshToken } = req.body;
       const result = await AuthService.rotateRefreshToken(refreshToken);
@@ -88,7 +151,11 @@ export class AuthController {
   /**
    * POST /api/auth/logout
    */
-  static async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async logout(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const { refreshToken } = req.body;
       if (refreshToken) {
@@ -105,7 +172,11 @@ export class AuthController {
   /**
    * POST /api/auth/logout-all
    */
-  static async logoutAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async logoutAll(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       if (!req.user) {
         throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');

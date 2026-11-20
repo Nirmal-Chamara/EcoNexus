@@ -14,8 +14,9 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { onboardingTheme } from '../../theme/onboardingTheme';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import GoogleLogo from '../../components/common/GoogleLogo';
+import { EnrollmentRole, enrollmentParams, enrollmentAccountRole } from '../../navigation/enrollment';
 
-export type UserRoleType = 'user' | 'collector' | 'center';
+export type UserRoleType = EnrollmentRole;
 
 interface Props {
   navigation?: any;
@@ -39,13 +40,7 @@ export default function RoleSelectionScreen({ navigation, onProceed, onLogin }: 
     }
 
     if (navigation) {
-      if (selectedRole === 'collector') {
-        navigation.navigate('Register', { role: 'collector', partner: true });
-      } else if (selectedRole === 'center') {
-        navigation.navigate('Register', { role: 'center', partner: true });
-      } else {
-        navigation.navigate('Register', { role: 'user' });
-      }
+      navigation.navigate('Register', enrollmentParams(selectedRole));
     }
   };
 
@@ -58,12 +53,7 @@ export default function RoleSelectionScreen({ navigation, onProceed, onLogin }: 
   };
 
   const handleGoogleSignIn = async () => {
-    const roleMap: Record<UserRoleType, string> = {
-      user: 'USER',
-      collector: 'COLLECTOR',
-      center: 'RECYCLING_CENTER',
-    };
-    await promptGoogleSignIn(true, roleMap[selectedRole]);
+    await promptGoogleSignIn(true, enrollmentAccountRole(selectedRole));
   };
 
   const getButtonLabel = () => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { phoneSchema } from './contact.schema';
 
 export const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -6,7 +7,7 @@ export const loginSchema = z.object({
 });
 
 const registrationFields = {
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100).trim(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address'),
   password: z
     .string()
@@ -15,7 +16,7 @@ const registrationFields = {
     .regex(/[A-Z]/, 'Must include an uppercase letter')
     .regex(/[a-z]/, 'Must include a lowercase letter')
     .regex(/[0-9]/, 'Must include a number'),
-  phone: z.string().trim().max(20, 'Phone number is too long').optional(),
+  phone: phoneSchema.optional(),
   role: z.enum(['USER', 'COLLECTOR', 'RECYCLING_CENTER']),
   organizationName: z.string().trim().max(150, 'Organization name is too long').optional(),
 };

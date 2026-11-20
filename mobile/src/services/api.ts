@@ -112,7 +112,7 @@ apiClient.interceptors.response.use(
 
     const requestUrl = originalRequest?.url ?? '';
     const publicAuth =
-      /\/auth\/(login|register|forgot-password|reset-password|refresh-token)(?:\?|$)/.test(
+      /\/auth\/(login|register|google|forgot-password|reset-password|refresh-token)(?:\?|$)/.test(
         requestUrl
       );
     if (!publicAuth && logoutReasonForError(error) === 'SUSPENDED') {
@@ -129,12 +129,7 @@ apiClient.interceptors.response.use(
     }
 
     // Skip refresh attempt for auth endpoints themselves
-    const url = originalRequest.url || '';
-    if (
-      url.includes('/auth/login') ||
-      url.includes('/auth/register') ||
-      url.includes('/auth/refresh')
-    ) {
+    if (publicAuth) {
       return Promise.reject(error);
     }
 

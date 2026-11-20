@@ -18,6 +18,8 @@ interface Props {
 }
 
 export default function ResetPasswordScreen({ navigation, route }: Props) {
+  const navigationTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (navigationTimer.current) clearTimeout(navigationTimer.current); }, []);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const initialToken = route?.params?.token || '';
@@ -42,7 +44,7 @@ export default function ResetPasswordScreen({ navigation, route }: Props) {
     try {
       await authService.resetPassword(token.trim(), newPassword);
       setIsSuccess(true);
-      setTimeout(() => {
+      navigationTimer.current = setTimeout(() => {
         navigation?.navigate('Login');
       }, 1500);
     } catch (error: unknown) {

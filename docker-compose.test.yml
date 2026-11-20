@@ -1,0 +1,18 @@
+# Isolated, disposable database. Never combine this file with the application compose files.
+name: econexus-test
+services:
+  test-db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: econexus_test
+      POSTGRES_USER: econexus_test
+      POSTGRES_PASSWORD: econexus_test_local_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U econexus_test -d econexus_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

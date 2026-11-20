@@ -40,7 +40,7 @@ export default function DashboardScreen() {
   const [scaleConnected, setScaleConnected] = useState(true);
 
   const facilityName =
-    user?.organization_name || user?.name || 'EcoNexus Metro Recovery Facility';
+    user?.name || 'Recycling center account';
   const totalCapacityKg = 15000;
   const currentIntakeKg = 11840;
   const capacityPercent = Math.round((currentIntakeKg / totalCapacityKg) * 100);

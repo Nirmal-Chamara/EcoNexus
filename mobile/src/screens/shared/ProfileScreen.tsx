@@ -219,6 +219,9 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <Pressable accessibilityRole="button" style={styles.menuItemRow} onPress={() => navigation.navigate('SignInMethods')}>
+          <Text style={styles.menuItemTitle}>Sign-in methods</Text>
+        </Pressable>
         {/* Infrastructure & Environment Section */}
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleRow}>
@@ -720,6 +723,9 @@ export default function ProfileScreen() {
 
         <View style={styles.menuDivider} />
 
+        <Pressable accessibilityRole="button" style={styles.menuItemRow} onPress={() => navigation.navigate('SignInMethods')}>
+          <Text style={styles.menuItemTitle}>Sign-in methods</Text>
+        </Pressable>
         {/* Privacy & Security */}
         <Pressable
           accessibilityRole="button"
