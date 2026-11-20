@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     width: width,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   pickupMarker: {
     backgroundColor: '#FFFFFF',
