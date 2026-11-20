@@ -14,24 +14,37 @@ type FormData = { token: string; newPassword: string; confirmPassword: string };
 
 interface Props {
   navigation?: { navigate: (screen: string) => void; goBack: () => void };
+  route?: { params?: { token?: string } };
 }
 
-export default function ResetPasswordScreen({ navigation }: Props) {
+export default function ResetPasswordScreen({ navigation, route }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const initialToken = route?.params?.token || '';
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(resetPasswordSchema),
-    defaultValues: { token: '', newPassword: '', confirmPassword: '' },
+    defaultValues: { token: initialToken, newPassword: '', confirmPassword: '' },
   });
+
+  React.useEffect(() => {
+    if (route?.params?.token) {
+      setValue('token', route.params.token);
+    }
+  }, [route?.params?.token, setValue]);
 
   const submit = async ({ token, newPassword }: FormData) => {
     setSubmitError(null);
     try {
       await authService.resetPassword(token.trim(), newPassword);
-      navigation?.navigate('Login');
+      setIsSuccess(true);
+      setTimeout(() => {
+        navigation?.navigate('Login');
+      }, 1500);
     } catch (error: unknown) {
       setSubmitError(
         mapApiError(error, 'The reset code is invalid or expired. Request a new code.')
@@ -98,10 +111,16 @@ export default function ResetPasswordScreen({ navigation }: Props) {
           )}
         />
         {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
+        {isSuccess ? (
+          <Text style={styles.success}>
+            Password reset successfully! Redirecting to sign in...
+          </Text>
+        ) : null}
         <Button
-          title="Reset password"
+          title={isSuccess ? "Success!" : "Reset password"}
           onPress={handleSubmit(submit)}
           loading={isSubmitting}
+          disabled={isSuccess}
           style={styles.button}
         />
         <Button title="Back" variant="ghost" onPress={() => navigation?.goBack()} />
@@ -116,5 +135,6 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: colors.textPrimary, marginBottom: 12 },
   description: { ...typography.body, color: colors.textSecondary, marginBottom: 24 },
   error: { ...typography.caption, color: colors.error, marginTop: 8 },
+  success: { ...typography.body, color: colors.success, marginTop: 8, marginBottom: 8, textAlign: 'center' },
   button: { marginTop: 20, marginBottom: 12 },
 });

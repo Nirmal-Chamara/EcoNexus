@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validation.middleware';
-import { authLimiter } from '../middleware/rateLimiter.middleware';
+import { authLimiter, forgotPasswordLimiter } from '../middleware/rateLimiter.middleware';
 import { authenticate } from '../middleware/auth.middleware';
 import {
   registerSchema,
@@ -9,15 +9,17 @@ import {
   refreshTokenSchema,
   resetPasswordRequestSchema,
   resetPasswordConfirmSchema,
+  googleAuthSchema,
 } from '../validators/auth.validator';
 
 const router = Router();
 
 router.post('/register', authLimiter, validateRequest(registerSchema), AuthController.register);
 router.post('/login', authLimiter, validateRequest(loginSchema), AuthController.login);
+router.post('/google', authLimiter, validateRequest(googleAuthSchema), AuthController.googleLogin);
 router.post(
   '/forgot-password',
-  authLimiter,
+  forgotPasswordLimiter,
   validateRequest(resetPasswordRequestSchema),
   AuthController.forgotPassword
 );

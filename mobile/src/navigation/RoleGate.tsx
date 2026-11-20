@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 interface RoleGateProps {
   allow: UserRole[];
   fallback?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export function useHasRole(role: UserRole | UserRole[]): boolean {

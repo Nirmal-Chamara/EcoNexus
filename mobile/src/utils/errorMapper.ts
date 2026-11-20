@@ -1,12 +1,9 @@
 import axios from 'axios';
 
-interface ApiErrorPayload {
-  message?: string;
-  code?: string;
-}
+import type { ApiError } from '../types/api';
 
 export function mapApiError(error: unknown, fallbackMessage: string): string {
-  if (!axios.isAxiosError<ApiErrorPayload>(error)) return fallbackMessage;
+  if (!axios.isAxiosError<Partial<ApiError>>(error)) return fallbackMessage;
 
   const { response } = error;
   if (!response) return 'Unable to connect. Check your internet connection and try again.';

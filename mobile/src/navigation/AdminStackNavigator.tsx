@@ -11,21 +11,21 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AdminUser, VerificationRequest } from '../services/admin.service';
-import UserListScreen           from '../screens/admin/UserListScreen';
-import UserDetailScreen         from '../screens/admin/UserDetailScreen';
-import VerificationQueueScreen  from '../screens/admin/VerificationQueueScreen';
+import type { AdminUser, VerificationRequest } from '../services/admin.service';
+import UserListScreen from '../screens/admin/UserListScreen';
+import UserDetailScreen from '../screens/admin/UserDetailScreen';
+import VerificationQueueScreen from '../screens/admin/VerificationQueueScreen';
 import VerificationDetailScreen from '../screens/admin/VerificationDetailScreen';
 
 // ─── Param Lists ──────────────────────────────────────────────────────────────
 
 export type AdminUsersStackParamList = {
-  UserList:   undefined;
+  UserList: undefined;
   UserDetail: { user: AdminUser };
 };
 
 export type AdminVerificationsStackParamList = {
-  VerificationQueue:  undefined;
+  VerificationQueue: undefined;
   VerificationDetail: { verification: VerificationRequest };
 };
 
@@ -38,12 +38,12 @@ export function UsersStackNavigator() {
     <UsersStack.Navigator
       initialRouteName="UserList"
       screenOptions={{
-        headerShown:  false,
-        animation:    'slide_from_right',
+        headerShown: false,
+        animation: 'slide_from_right',
         contentStyle: { backgroundColor: 'transparent' },
       }}
     >
-      <UsersStack.Screen name="UserList"   component={UserListScreen} />
+      <UsersStack.Screen name="UserList" component={UserListScreen} />
       <UsersStack.Screen name="UserDetail" component={UserDetailScreen} />
     </UsersStack.Navigator>
   );
@@ -58,12 +58,12 @@ export function VerificationsStackNavigator() {
     <VerificationsStack.Navigator
       initialRouteName="VerificationQueue"
       screenOptions={{
-        headerShown:  false,
-        animation:    'slide_from_right',
+        headerShown: false,
+        animation: 'slide_from_right',
         contentStyle: { backgroundColor: 'transparent' },
       }}
     >
-      <VerificationsStack.Screen name="VerificationQueue"  component={VerificationQueueScreen} />
+      <VerificationsStack.Screen name="VerificationQueue" component={VerificationQueueScreen} />
       <VerificationsStack.Screen name="VerificationDetail" component={VerificationDetailScreen} />
     </VerificationsStack.Navigator>
   );

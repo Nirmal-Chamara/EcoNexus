@@ -10,6 +10,9 @@
 3. For password recovery, configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM` in `backend/.env`.
 4. Run `cd mobile && npm install && npm start`, then launch on a device or simulator.
 
+For the complete physical-device acceptance path, follow [mobile-auth-smoke.md](./mobile-auth-smoke.md).
+For the timed presentation flow, follow [mobile-demo-script.md](./mobile-demo-script.md).
+
 ## Auth state and API usage
 
 `AuthProvider` wraps the app and exposes `useAuth()` from `mobile/src/context/AuthContext.tsx`:
@@ -28,24 +31,54 @@ const response = await apiClient.get('/your/endpoint');
 
 It adds the in-memory access token and handles a single in-flight refresh against
 `POST /api/auth/refresh-token`. Endpoint responses follow the backend `{ message, data }` envelope.
-403 responses are not a reason to bypass authorization; show a permission message in the feature UI.
-The backend remains the authorization authority.
+Handle feature-level 403 responses as a permission state and keep the request behind the normal
+loading/error boundary:
+
+```ts
+try {
+  const { data } = await apiClient.get<ApiEnvelope<FeatureData>>('/your/endpoint');
+  setData(data.data);
+} catch (error) {
+  setError(mapApiError(error, 'You cannot access this feature.'));
+}
+```
+
+Do not retry a 403 by changing the role locally. The backend remains the authorization authority;
+the global client only refreshes once for a 401 and signs out when that refresh fails.
 
 ## Navigation and role ownership
 
 `RootNavigator` selects the auth flow, pending/rejected account screens, or the role navigator.
+It re-evaluates the decision table whenever `useAuth().user` changes, so a successful
+`refreshUser()` moves an approved partner from the pending screen into the correct role tabs.
+The root flow fades between auth, restricted-account, and role trees; each nested stack/tab
+navigator keeps its own typed route parameter list.
+
 Feature screens belong to their existing role tab navigator:
 
-| Role | Owned tab screens |
-|---|---|
-| `USER` | `mobile/src/screens/user/` |
-| `COLLECTOR` | `mobile/src/screens/collector/` |
-| `RECYCLING_CENTER` | `mobile/src/screens/recycling-center/` |
-| `ADMIN` | `mobile/src/screens/admin/` |
+| Role | Navigator | Tabs / owned screens |
+|---|---|---|
+| `USER` | `UserNavigator` | Home, Rewards, Profile |
+| `COLLECTOR` | `CollectorNavigator` | Dashboard, Requests, Area, Profile |
+| `RECYCLING_CENTER` | `RecyclingCenterNavigator` | Dashboard, Incoming, Processing, Profile |
+| `ADMIN` | `AdminNavigator` | Dashboard, Users, Verify, Reports, Profile |
 
-Register nested screens in the matching role navigator or its stack. Keep shared profile routes in
-`ProfileStackNavigator`. `RoleGate` and `useHasRole()` may hide role-specific controls, but they are
-presentation helpers only; sensitive API operations still require backend authorization.
+Add a screen to the matching navigator and its typed `*TabParamList`; do not edit another
+role's navigator. Add nested profile routes to `ProfileStackNavigator` only when the screen
+is shared by all roles.
+
+For presentation-only controls, use `RoleGate`:
+
+```tsx
+import RoleGate from '../navigation/RoleGate';
+
+<RoleGate allow={['ADMIN']} fallback={null}>
+  <AdminOnlyMenuRow />
+</RoleGate>;
+```
+
+`RoleGate` and `useHasRole()` improve the UI but are not security boundaries. The backend must
+still authorize every protected operation.
 
 Public registration supports `USER`, `COLLECTOR`, and `RECYCLING_CENTER`; never expose `ADMIN`.
 Partner registration must include `organizationName` and creates a pending verification request.
@@ -59,6 +92,10 @@ Admins process these from the verification queue; approval activates the request
   never a replacement for backend authentication.
 - A temporary network failure during startup restoration does not delete the persisted refresh token;
   an unauthorized refresh response does. If offline, reconnect and restart the app to retry restoration.
+- API requests without a response raise the global offline banner; the next successful API response
+  clears it. Submit buttons remain disabled while their request is in flight.
+- Registration handles the Android hardware Back button by returning to the previous form step before
+  leaving the auth flow. Dirty profile edits use the navigation discard confirmation.
 - Password reset requests always return a generic response to avoid account enumeration. Reset codes
   are single-use, expire after 15 minutes, and revoke existing sessions when consumed.
 - Do not store credentials in AsyncStorage or include secrets in logs.

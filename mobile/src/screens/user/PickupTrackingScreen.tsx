@@ -206,53 +206,82 @@ export default function PickupTrackingScreen() {
 
       {/* Map View */}
       <View style={styles.mapContainer}>
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={{
-            latitude: pickupLat,
-            longitude: pickupLng,
-            latitudeDelta: 0.04,
-            longitudeDelta: 0.04,
-          }}
-        >
-          {/* Pickup location pin */}
-          <Marker
-            coordinate={{ latitude: pickupLat, longitude: pickupLng }}
-            title="Pickup Location"
-            description={pickup.address_text}
-          >
-            <View style={styles.pickupMarker}>
-              <Text style={styles.markerEmoji}>📍</Text>
+        {Platform.OS === 'web' ? (
+          <View style={[styles.map, styles.webMapPlaceholder]}>
+            <View style={styles.webRadarPing}>
+              <Text style={{ fontSize: 32 }}>📡</Text>
             </View>
-          </Marker>
-
-          {/* Collector vehicle live pin */}
-          {collectorCoords && (
-            <Marker
-              coordinate={collectorCoords}
-              title={collector?.collector_name || 'Assigned Collector'}
-              description="Collector Vehicle"
+            <Text style={styles.webMapTitle}>Live GPS Telemetry Active</Text>
+            <Text style={styles.webMapCoords}>
+              Target: {pickupLat.toFixed(4)}°N, {pickupLng.toFixed(4)}°E
+            </Text>
+            {collectorCoords ? (
+              <Text style={styles.webMapCollector}>
+                🚛 Collector: {collectorCoords.latitude.toFixed(4)}°N, {collectorCoords.longitude.toFixed(4)}°E
+              </Text>
+            ) : (
+              <Text style={styles.webMapWaiting}>Waiting for hauler telemetry...</Text>
+            )}
+            <TouchableOpacity
+              style={styles.webExternalMapBtn}
+              onPress={() =>
+                Linking.openURL(
+                  `https://www.google.com/maps/search/?api=1&query=${pickupLat},${pickupLng}`
+                )
+              }
             >
-              <View style={styles.collectorMarker}>
-                <Text style={styles.markerEmoji}>🚛</Text>
+              <Text style={styles.webExternalMapText}>View on External Map ↗</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={{
+              latitude: pickupLat,
+              longitude: pickupLng,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            }}
+          >
+            {/* Pickup location pin */}
+            <Marker
+              coordinate={{ latitude: pickupLat, longitude: pickupLng }}
+              title="Pickup Location"
+              description={pickup.address_text}
+            >
+              <View style={styles.pickupMarker}>
+                <Text style={styles.markerEmoji}>📍</Text>
               </View>
             </Marker>
-          )}
 
-          {/* Line connecting user and collector */}
-          {collectorCoords && (
-            <Polyline
-              coordinates={[
-                { latitude: pickupLat, longitude: pickupLng },
-                collectorCoords,
-              ]}
-              strokeColor={colors.primary}
-              strokeWidth={3}
-              lineDashPattern={[6, 4]}
-            />
-          )}
-        </MapView>
+            {/* Collector vehicle live pin */}
+            {collectorCoords && (
+              <Marker
+                coordinate={collectorCoords}
+                title={collector?.collector_name || 'Assigned Collector'}
+                description="Collector Vehicle"
+              >
+                <View style={styles.collectorMarker}>
+                  <Text style={styles.markerEmoji}>🚛</Text>
+                </View>
+              </Marker>
+            )}
+
+            {/* Line connecting user and collector */}
+            {collectorCoords && (
+              <Polyline
+                coordinates={[
+                  { latitude: pickupLat, longitude: pickupLng },
+                  collectorCoords,
+                ]}
+                strokeColor={colors.primary}
+                strokeWidth={3}
+                lineDashPattern={[6, 4]}
+              />
+            )}
+          </MapView>
+        )}
       </View>
 
       {/* Details & Status Bottom Sheet */}
@@ -363,41 +392,41 @@ export default function PickupTrackingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAF9',
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAF9',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   loadingText: {
-    color: colors.textSecondary,
+    color: '#64748B',
     marginTop: 12,
     fontSize: 14,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0F172A',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: colors.textMuted,
+    color: '#64748B',
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
   },
   actionBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#059669',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   actionBtnText: {
-    color: colors.textInverse,
+    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
   },
@@ -405,11 +434,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#E2E8F0',
     paddingTop: Platform.OS === 'ios' ? 44 : 10,
   },
   socketIndicatorRow: {
@@ -423,7 +452,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   socketStatusText: {
-    color: colors.textSecondary,
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -432,37 +461,37 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   refreshBtnText: {
-    color: colors.primary,
+    color: '#059669',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   mapContainer: {
     height: 260,
     width: width,
   },
   map: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   pickupMarker: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     padding: 6,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#059669',
   },
   collectorMarker: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     padding: 6,
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: colors.warning,
+    borderColor: '#D97706',
   },
   markerEmoji: {
     fontSize: 20,
   },
   sheetContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAF9',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     marginTop: -16,
@@ -475,7 +504,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: '#CBD5E1',
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -487,28 +516,28 @@ const styles = StyleSheet.create({
   },
   wasteTypeTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   orderIdText: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: '#64748B',
     marginTop: 2,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     marginBottom: 14,
   },
   cardSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#059669',
     marginBottom: 10,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
   collectorInfoRow: {
     flexDirection: 'row',
@@ -518,15 +547,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: colors.warning,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   collectorAvatarText: {
-    color: colors.warning,
+    color: '#059669',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -536,22 +565,22 @@ const styles = StyleSheet.create({
   collectorName: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0F172A',
   },
   collectorSub: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: '#64748B',
     marginTop: 2,
   },
   callBtn: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: '#ECFDF5',
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#A7F3D0',
   },
   callBtnEmoji: {
     fontSize: 18,
@@ -559,20 +588,20 @@ const styles = StyleSheet.create({
   searchingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1607',
+    backgroundColor: '#FEF3C7',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: '#FDE68A',
     marginBottom: 14,
   },
   searchingTitle: {
-    color: colors.warning,
+    color: '#B45309',
     fontSize: 13,
     fontWeight: '700',
   },
   searchingSub: {
-    color: colors.textSecondary,
+    color: '#78350F',
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,
@@ -580,18 +609,18 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 7,
+    paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomColor: '#F1F5F9',
   },
   detailLabel: {
     fontSize: 13,
-    color: colors.textMuted,
+    color: '#64748B',
   },
   detailValue: {
     fontSize: 13,
-    color: colors.textPrimary,
-    fontWeight: '500',
+    color: '#0F172A',
+    fontWeight: '600',
     maxWidth: '65%',
     textAlign: 'right',
   },
@@ -599,15 +628,70 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: colors.surfaceAlt,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     marginTop: 4,
   },
   backButtonText: {
-    color: colors.textSecondary,
+    color: '#0F172A',
     fontSize: 14,
+    fontWeight: '700',
+  },
+  webMapPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    margin: 16,
+    borderRadius: 18,
+  },
+  webRadarPing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  webMapTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  webMapCoords: {
+    fontSize: 12,
+    color: '#059669',
+    marginBottom: 2,
     fontWeight: '600',
+  },
+  webMapCollector: {
+    fontSize: 12,
+    color: '#D97706',
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  webMapWaiting: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  webExternalMapBtn: {
+    marginTop: 12,
+    backgroundColor: '#059669',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  webExternalMapText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

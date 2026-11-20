@@ -1,9 +1,13 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet, View, Platform, DevSettings, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import RootNavigator from './src/navigation/RootNavigator';
+import NetworkStatusBanner from './src/components/common/NetworkStatusBanner';
+import ThemePreviewScreen from './src/screens/dev/ThemePreviewScreen';
+import ComponentGalleryScreen from './src/screens/dev/ComponentGalleryScreen';
 import { tokenStorage } from './src/services/tokenStorage';
 
 const isWeb = Platform.OS === 'web';
@@ -21,16 +25,45 @@ function AppContent() {
 }
 
 export default function App() {
+  const [showTokens, setShowTokens] = React.useState(false);
+  const [showComponents, setShowComponents] = React.useState(false);
+
+  React.useEffect(() => {
+    if (__DEV__ && DevSettings?.addMenuItem) {
+      DevSettings.addMenuItem('EcoNexus design tokens', () => setShowTokens(true));
+      DevSettings.addMenuItem('EcoNexus component gallery', () => setShowComponents(true));
+    }
+  }, []);
+
   return (
     <SafeAreaProvider style={styles.safeArea}>
       <AuthProvider>
         <View style={styles.canvas}>
           <View style={styles.phoneFrame}>
-            <AppContent />
+            <NetworkStatusBanner />
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
             <StatusBar style="auto" />
           </View>
         </View>
       </AuthProvider>
+      {__DEV__ && (
+        <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>
+          <SafeAreaProvider>
+            <ComponentGalleryScreen onClose={() => setShowComponents(false)} />
+            <StatusBar style="light" />
+          </SafeAreaProvider>
+        </Modal>
+      )}
+      {__DEV__ && (
+        <Modal visible={showTokens} onRequestClose={() => setShowTokens(false)}>
+          <SafeAreaProvider>
+            <ThemePreviewScreen onClose={() => setShowTokens(false)} />
+            <StatusBar style="dark" />
+          </SafeAreaProvider>
+        </Modal>
+      )}
     </SafeAreaProvider>
   );
 }

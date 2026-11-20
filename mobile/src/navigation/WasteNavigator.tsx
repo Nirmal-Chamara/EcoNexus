@@ -18,7 +18,9 @@ const Stack = createNativeStackNavigator<WasteStackParamList>();
 
 function Placeholder({ label }: { label: string }) {
   return (
-    <Stack.Screen name="AddListing" component={AddListingScreen} options={{ title: "Add Waste Listing" }} />
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAF9" }}>
+      <Text style={{ fontSize: 16, color: "#475569" }}>{label}</Text>
+    </View>
   );
 }
 
@@ -39,9 +41,7 @@ export default function WasteNavigator() {
     <Stack.Navigator initialRouteName="MyListings">
       <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: "My Waste Listings" }} />
       <Stack.Screen name="Categories" component={CategoriesRoute} options={{ title: "Choose a category" }} />
-      <Stack.Screen name="AddListing" options={{ title: "Add Waste Listing" }}>
-        {() => <Placeholder label="Add listing form" />}
-      </Stack.Screen>
+      <Stack.Screen name="AddListing" component={AddListingScreen} options={{ title: "Add Waste Listing" }} />
       <Stack.Screen name="ListingDetail" options={{ title: "Listing" }}>
         {() => <Placeholder label="Listing details" />}
       </Stack.Screen>

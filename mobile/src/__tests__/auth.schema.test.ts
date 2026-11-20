@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   forgotPasswordSchema,
   loginSchema,
+  registerFormSchema,
   registerSchema,
   resetPasswordSchema,
 } from '../schemas/auth.schema';
@@ -29,6 +30,22 @@ describe('auth schemas', () => {
     expect(
       registerSchema.safeParse({ ...partner, organizationName: 'Green Collectors' }).success
     ).toBe(true);
+  });
+
+  it('validates the F4 confirmation field without sending it to the backend', () => {
+    const form = {
+      name: 'Alex Green',
+      email: 'alex@example.com',
+      password: 'StrongPass1',
+      confirmPassword: 'StrongPass1',
+      phone: '',
+      role: 'USER' as const,
+      organizationName: '',
+    };
+    expect(registerFormSchema.safeParse(form).success).toBe(true);
+    expect(registerFormSchema.safeParse({ ...form, confirmPassword: 'Different2' }).success).toBe(
+      false
+    );
   });
 
   it('validates login email and non-empty password', () => {

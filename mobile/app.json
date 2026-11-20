@@ -2,13 +2,12 @@
   "expo": {
     "name": "EcoNexus",
     "slug": "econexus",
+    "scheme": "econexus",
     "version": "1.0.0",
-    "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
       "backgroundColor": "#0A0F0D"
     },
     "assetBundlePatterns": ["**/*"],
@@ -17,11 +16,11 @@
       "bundleIdentifier": "com.econexus.app"
     },
     "android": {
+      "package": "com.econexus.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0F0D"
-      },
-      "package": "com.econexus.app"
+        "backgroundColor": "#F8FAF9"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +37,6 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
           "color": "#22C55E"
         }
       ]
