@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { PickupService } from '../services/pickup.service';
+import { MatchingService } from '../algorithms/matching/matching.service';
 import { AppError } from '../utils/AppError';
 
 export class PickupController {
@@ -170,6 +171,56 @@ export class PickupController {
       res.status(200).json({
         message: 'Pickup verified and weighed successfully',
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/pickup/:id/suggested-collectors
+   * Retrieve ranked suggested collectors for a pickup request
+   */
+  static async getSuggestedCollectors(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const radius = req.query.radius ? parseFloat(req.query.radius as string) : 25000;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+
+      const ranked = await MatchingService.findRankedCollectorsForPickup(id, radius, limit);
+
+      res.status(200).json({
+        message: 'Suggested collectors retrieved successfully',
+        count: ranked.length,
+        data: ranked,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/pickup/recommended
+   * Suggest collectors near given GPS coordinates
+   */
+  static async getRecommended(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const lat = parseFloat(req.query.latitude as string);
+      const lng = parseFloat(req.query.longitude as string);
+      const wasteType = (req.query.wasteType as string) || 'PLASTIC';
+      const weight = req.query.weight ? parseFloat(req.query.weight as string) : 5;
+      const radius = req.query.radius ? parseFloat(req.query.radius as string) : 25000;
+
+      if (isNaN(lat) || isNaN(lng)) {
+        throw new AppError(400, 'Valid latitude and longitude query params are required', 'INVALID_COORDINATES');
+      }
+
+      const results = await MatchingService.getRecommendedCollectors(lat, lng, wasteType, weight, radius);
+
+      res.status(200).json({
+        message: 'Recommended collectors retrieved',
+        count: results.length,
+        data: results,
       });
     } catch (error) {
       next(error);
