@@ -1,80 +1,92 @@
+import { z } from 'zod';
 import { pool } from '../config/database';
 import { env } from '../config/env';
 import { hashPassword } from '../utils/password';
+import { isSafeProvisioningPassword } from '../utils/credentialPolicy';
+import { AppError } from '../utils/AppError';
+import { accountTransaction } from '../services/account-policy.service';
 
 export async function seedAdmin(): Promise<void> {
-  const client = await pool.connect();
+  const email = env.ADMIN_EMAIL.trim().toLowerCase();
+  const password = env.ADMIN_PASSWORD;
+  const operator = env.ADMIN_PROVISIONED_BY.trim();
+  const reason = env.ADMIN_PROVISION_REASON.trim();
+  if (!z.string().email().safeParse(email).success || !operator || !reason) {
+    throw new AppError(
+      400,
+      'Configure ADMIN_EMAIL, ADMIN_PROVISIONED_BY and ADMIN_PROVISION_REASON explicitly',
+      'ADMIN_PROVISION_CONFIG'
+    );
+  }
+  if (!isSafeProvisioningPassword(password)) {
+    throw new AppError(
+      400,
+      'Configure a nondefault admin password of 12-72 bytes with upper, lower and numeric characters',
+      'ADMIN_PROVISION_CONFIG'
+    );
+  }
   try {
-    console.log('[Admin Seed] Starting system admin initialization...');
-
-    const email = (env.ADMIN_EMAIL || 'admin@econexus.com').toLowerCase().trim();
-    const password = env.ADMIN_PASSWORD || 'AdminPass123!';
-    const name = env.ADMIN_NAME || 'System Administrator';
-
-    if (!email || !password) {
-      throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be configured in environment variables');
-    }
-
-    if (password.length < 8) {
-      throw new Error('ADMIN_PASSWORD must be at least 8 characters long');
-    }
-
-    // Check if user already exists
-    const existingUserRes = await client.query(
-      `SELECT id, role, status FROM users WHERE email = $1`,
-      [email]
-    );
-
-    if (existingUserRes.rows.length > 0) {
-      const existingUser = existingUserRes.rows[0];
-      if (existingUser.role === 'ADMIN' && existingUser.status === 'ACTIVE') {
-        console.log(`[Admin Seed] Admin account (${email}) already exists and is active. No changes needed.`);
-        return;
-      }
-
-      // Ensure account is set to ADMIN role and ACTIVE status
-      await client.query(
-        `UPDATE users SET role = 'ADMIN', status = 'ACTIVE', updated_at = NOW() WHERE id = $1`,
-        [existingUser.id]
+    await accountTransaction(async (client) => {
+      const existing = await client.query(
+        'SELECT id, role, status FROM users WHERE email = $1 FOR UPDATE',
+        [email]
       );
-      console.log(`[Admin Seed] Updated existing user (${email}) role to ADMIN and status to ACTIVE.`);
-      return;
+      if (existing.rows.length) {
+        const user = existing.rows[0];
+        if (user.role === 'ADMIN' && user.status === 'ACTIVE') return;
+        throw new AppError(
+          409,
+          'An existing account cannot be promoted or reactivated by provisioning',
+          'ADMIN_IDENTITY_CONFLICT'
+        );
+      }
+      const hash = await hashPassword(password);
+      const result = await client.query(
+        `INSERT INTO users (name, email, password_hash, role, status, token_version)
+         VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE', 0) RETURNING id`,
+        [env.ADMIN_NAME, email, hash]
+      );
+      await client.query(
+        'INSERT INTO audit_logs (actor_id, action, target_id, meta) VALUES ($1, $2, $3, $4)',
+        [
+          null,
+          'ADMIN_PROVISIONED',
+          result.rows[0].id,
+          { source: 'operator-cli', operator, reason },
+        ]
+      );
+    });
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === '23505'
+    ) {
+      throw new AppError(
+        409,
+        'An account already exists for the provisioning identity',
+        'ADMIN_IDENTITY_CONFLICT'
+      );
     }
-
-    // Hash password and create new admin account
-    const passwordHash = await hashPassword(password);
-
-    const insertRes = await client.query(
-      `INSERT INTO users (name, email, password_hash, role, status, token_version)
-       VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE', 0)
-       RETURNING id, name, email, role, status, created_at`,
-      [name, email, passwordHash]
-    );
-
-    const admin = insertRes.rows[0];
-    console.log(`[Admin Seed] Admin account initialized successfully!`);
-    console.log(`[Admin Seed] ID: ${admin.id}`);
-    console.log(`[Admin Seed] Email: ${admin.email}`);
-    console.log(`[Admin Seed] Role: ${admin.role}`);
-    console.log(`[Admin Seed] Status: ${admin.status}`);
-  } catch (err) {
-    console.error('[Admin Seed Error]: Failed to seed system admin:', err);
-    throw err;
-  } finally {
-    client.release();
-    await pool.end();
+    throw error;
   }
 }
 
-// Execute directly when run as script
-if (require.main === module) {
-  seedAdmin()
-    .then(() => {
-      console.log('[Admin Seed] Done.');
-      process.exit(0);
-    })
-    .catch((err) => {
-      console.error('[Admin Seed] Execution failed:', err);
-      process.exit(1);
-    });
+async function main() {
+  try {
+    await seedAdmin();
+    console.log(
+      '[Admin Seed] Provisioning completed; existing active admins remain unchanged.'
+    );
+  } catch (error) {
+    console.error(
+      '[Admin Seed] Provisioning failed:',
+      error instanceof AppError ? error.code : 'PROVISIONING_FAILED'
+    );
+    process.exitCode = 1;
+  } finally {
+    await pool.end();
+  }
 }
+if (require.main === module) void main();

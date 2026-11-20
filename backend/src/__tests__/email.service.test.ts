@@ -1,138 +1,141 @@
-import { sendPasswordResetEmail } from '../services/email.service';
-import { env } from '../config/env';
 import nodemailer from 'nodemailer';
+import { env } from '../config/env';
+import {
+  configuredMailProvider,
+  sendTransactionalEmail,
+  MailDeliveryError,
+} from '../services/email.service';
 
 jest.mock('../config/env', () => ({
   env: {
-    NODE_ENV: 'test',
     RESEND_API_KEY: '',
     SMTP_HOST: '',
-    SMTP_PORT: 587,
     SMTP_USER: '',
     SMTP_PASSWORD: '',
-    EMAIL_FROM: '',
+    SMTP_PORT: 587,
+    EMAIL_FROM: 'Accounts <accounts@econexus.test>',
+    EMAIL_OUTBOX_KEY: '1'.repeat(64),
   },
 }));
-
 jest.mock('nodemailer');
-
-describe('email.service', () => {
-  const originalFetch = global.fetch;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (env as any).NODE_ENV = 'development';
-    (env as any).RESEND_API_KEY = '';
-    (env as any).SMTP_HOST = '';
-    (env as any).SMTP_PORT = 587;
-    (env as any).SMTP_USER = '';
-    (env as any).SMTP_PASSWORD = '';
-    (env as any).EMAIL_FROM = '';
-  });
-
-  afterAll(() => {
-    global.fetch = originalFetch;
-  });
-
-  it('in development mode with no credentials, logs mock reset without throwing', async () => {
-    await expect(sendPasswordResetEmail('user@test.com', 'MOCK-TOKEN-123')).resolves.toBeUndefined();
-  });
-
-  it('in production mode with no credentials, throws error', async () => {
-    (env as any).NODE_ENV = 'production';
-    await expect(sendPasswordResetEmail('user@test.com', 'MOCK-TOKEN-123')).rejects.toThrow(
-      'Email service configuration is incomplete'
-    );
-  });
-
-  it('sends email via Resend API when RESEND_API_KEY is configured', async () => {
-    (env as any).RESEND_API_KEY = 're_test_key_123';
-    (env as any).EMAIL_FROM = 'EcoNexus <onboarding@resend.dev>';
-
-    const mockFetch = jest.fn().mockResolvedValue({
+const originalFetch = global.fetch;
+beforeEach(() => {
+  jest.clearAllMocks();
+  env.RESEND_API_KEY = 'resend-fixture';
+  env.SMTP_HOST = '';
+  env.SMTP_USER = '';
+  env.SMTP_PASSWORD = '';
+  global.fetch = jest.fn() as typeof fetch;
+});
+afterAll(() => {
+  global.fetch = originalFetch;
+});
+it('never substitutes a console token when no provider is configured', () => {
+  env.RESEND_API_KEY = '';
+  expect(() => configuredMailProvider()).toThrow(
+    'Email delivery is not configured'
+  );
+});
+it('requires durable payload encryption configuration', () => {
+  const key = env.EMAIL_OUTBOX_KEY;
+  env.EMAIL_OUTBOX_KEY = '';
+  expect(() => configuredMailProvider()).toThrow();
+  env.EMAIL_OUTBOX_KEY = key;
+});
+it('uses Resend with a stable idempotency key and records provider acceptance', async () => {
+  jest
+    .mocked(fetch)
+    .mockResolvedValue({
       ok: true,
-      status: 200,
-      json: async () => ({ id: 'email_msg_123' }),
-    });
-    global.fetch = mockFetch as any;
-
-    await sendPasswordResetEmail('target@test.com', 'RESET-123456');
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toBe('https://api.resend.com/emails');
-    expect(options.headers['Authorization']).toBe('Bearer re_test_key_123');
-    const parsedBody = JSON.parse(options.body);
-    expect(parsedBody.to).toEqual(['target@test.com']);
-    expect(parsedBody.subject).toBe('Reset your EcoNexus password');
-    expect(parsedBody.html).toContain('RESET-123456');
-    expect(parsedBody.html).toContain('econexus://reset-password?token=RESET-123456');
-  });
-
-  it('throws descriptive error if Resend API returns error and no SMTP configured', async () => {
-    (env as any).RESEND_API_KEY = 're_test_key_123';
-    const mockFetch = jest.fn().mockResolvedValue({
+      json: async () => ({ id: 'provider-message' }),
+    } as Response);
+  expect(
+    await sendTransactionalEmail(
+      'resend',
+      'job-id',
+      'recipient@econexus.test',
+      'Subject',
+      'Body'
+    )
+  ).toBe('provider-message');
+  expect(fetch).toHaveBeenCalledWith(
+    'https://api.resend.com/emails',
+    expect.objectContaining({
+      signal: expect.anything(),
+      headers: expect.objectContaining({
+        'Idempotency-Key': 'econexus/job-id',
+      }),
+    })
+  );
+});
+it.each([429, 500, 503])(
+  'classifies HTTP %s as a bounded retry',
+  async (status) => {
+    jest.mocked(fetch).mockResolvedValue({ ok: false, status } as Response);
+    await expect(
+      sendTransactionalEmail(
+        'resend',
+        'job',
+        'recipient@econexus.test',
+        'Subject',
+        'Body'
+      )
+    ).rejects.toMatchObject({ retryable: true });
+  }
+);
+it('rejects a permanent provider error without returning/logging its response body', async () => {
+  jest
+    .mocked(fetch)
+    .mockResolvedValue({
       ok: false,
       status: 403,
-      statusText: 'Forbidden',
-      json: async () => ({ message: 'Domain not verified' }),
-    });
-    global.fetch = mockFetch as any;
-
-    await expect(sendPasswordResetEmail('target@test.com', 'RESET-123456')).rejects.toThrow(
-      'Domain not verified'
-    );
-  });
-
-  it('sends email via Nodemailer SMTP when SMTP credentials are provided', async () => {
-    (env as any).SMTP_HOST = 'smtp.resend.com';
-    (env as any).SMTP_PORT = 465;
-    (env as any).SMTP_USER = 'resend';
-    (env as any).SMTP_PASSWORD = 'password_123';
-    (env as any).EMAIL_FROM = 'noreply@econexus.lk';
-
-    const sendMailMock = jest.fn().mockResolvedValue({ messageId: 'smtp-123' });
-    (nodemailer.createTransport as jest.Mock).mockReturnValue({
-      sendMail: sendMailMock,
-    });
-
-    await sendPasswordResetEmail('target@test.com', 'RESET-123456');
-
-    expect(nodemailer.createTransport).toHaveBeenCalledWith({
-      host: 'smtp.resend.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: 'resend',
-        pass: 'password_123',
-      },
-    });
-    expect(sendMailMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        from: 'noreply@econexus.lk',
-        to: 'target@test.com',
-        subject: 'Reset your EcoNexus password',
-      })
-    );
-  });
-
-  it('falls back to SMTP when Resend API fails and SMTP is configured', async () => {
-    (env as any).RESEND_API_KEY = 're_test_key_123';
-    (env as any).SMTP_HOST = 'smtp.resend.com';
-    (env as any).SMTP_PORT = 465;
-    (env as any).SMTP_USER = 'resend';
-    (env as any).SMTP_PASSWORD = 'password_123';
-
-    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
-
-    const sendMailMock = jest.fn().mockResolvedValue({ messageId: 'smtp-fallback-123' });
-    (nodemailer.createTransport as jest.Mock).mockReturnValue({
-      sendMail: sendMailMock,
-    });
-
-    await sendPasswordResetEmail('target@test.com', 'RESET-123456');
-
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
+      text: async () => 'sensitive-provider-details',
+    } as Response);
+  await expect(
+    sendTransactionalEmail(
+      'resend',
+      'job',
+      'recipient@econexus.test',
+      'Subject',
+      'Body'
+    )
+  ).rejects.toMatchObject({
+    code: 'EMAIL_PROVIDER_HTTP_403',
+    retryable: false,
   });
 });
-
+it('treats a network timeout as ambiguous/retryable without switching providers', async () => {
+  jest.mocked(fetch).mockRejectedValue(new Error('Network timeout'));
+  await expect(
+    sendTransactionalEmail(
+      'resend',
+      'job',
+      'recipient@econexus.test',
+      'Subject',
+      'Body'
+    )
+  ).rejects.toBeInstanceOf(MailDeliveryError);
+  expect(nodemailer.createTransport).not.toHaveBeenCalled();
+});
+it('requires actual provider acceptance for SMTP too', async () => {
+  env.SMTP_HOST = 'smtp.econexus.test';
+  env.SMTP_USER = 'sender';
+  env.SMTP_PASSWORD = 'smtp-fixture';
+  const close = jest.fn();
+  const sendMail = jest
+    .fn()
+    .mockResolvedValue({ accepted: [], rejected: ['recipient@econexus.test'] });
+  jest
+    .mocked(nodemailer.createTransport)
+    .mockReturnValue({ sendMail, close } as never);
+  await expect(
+    sendTransactionalEmail(
+      'smtp',
+      'job',
+      'recipient@econexus.test',
+      'Subject',
+      'Body'
+    )
+  ).rejects.toMatchObject({ code: 'EMAIL_RECIPIENT_REJECTED' });
+  expect(close).toHaveBeenCalled();
+});

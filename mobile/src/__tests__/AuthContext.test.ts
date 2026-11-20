@@ -6,6 +6,7 @@ import { authService } from '../services/auth.service';
 import { userService } from '../services/user.service';
 import { tokenStorage } from '../services/tokenStorage';
 import { authenticateBiometric, canUseBiometrics } from '../services/biometric';
+jest.mock('../services/socket.service', () => ({ socketService: { disconnect: jest.fn() } }));
 configure({ asyncUtilTimeout: 2500 });
 
 let mockListener: (token: string | null) => void = () => {};

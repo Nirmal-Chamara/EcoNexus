@@ -13,6 +13,7 @@ import { tokenStorage, subscribeAccessToken } from '../services/tokenStorage';
 import { registerForceLogoutHandler, logoutReasonForError } from '../services/api';
 import type { ForceLogoutReason } from '../types/session';
 import { userService } from '../services/user.service';
+import { socketService } from '../services/socket.service';
 import { authenticateBiometric, canUseBiometrics } from '../services/biometric';
 
 // ─────────────────────────────────────────────
@@ -93,14 +94,12 @@ export interface AuthContextValue {
   /** Sign out the current user and revoke tokens */
   signOut: () => Promise<void>;
   /** Sign in or register with Google OAuth ID token */
-  signInWithGoogle: (idToken: string, keepSignedIn?: boolean, role?: string) => Promise<void>;
-  loginWithGoogle?: (idToken: string, keepSignedIn?: boolean, role?: string) => Promise<void>;
+  signInWithGoogle: (idToken: string, keepSignedIn?: boolean, role?: string, nonce?: string) => Promise<void>;
+  loginWithGoogle?: (idToken: string, keepSignedIn?: boolean, role?: string, nonce?: string) => Promise<void>;
   /** Reload the authenticated profile from the server. */
   refreshUser: () => Promise<void>;
   /** Update the local user profile state after a profile edit */
   updateUser: (updatedUser: Partial<AuthUser>) => void;
-  /** Quick one-tap login for UI review and development testing */
-  devLogin: (role?: 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN') => void;
 }
 
 // ─────────────────────────────────────────────
@@ -140,6 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const forceLogout = useCallback(async (reason: ForceLogoutReason): Promise<void> => {
+    socketService.disconnect();
     sessionVersion.current += 1;
     dispatch({ type: 'SIGN_OUT', reason });
     await tokenStorage.clearTokens();
@@ -225,6 +225,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const version = ++sessionVersion.current;
     const data = await authService.login(input);
     if (version !== sessionVersion.current) return;
+    socketService.disconnect();
     await tokenStorage.setKeepSignedIn(keepSignedIn);
     await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
     if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
@@ -235,6 +236,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const version = ++sessionVersion.current;
     const data = await authService.register(input);
     if (version !== sessionVersion.current) return;
+    socketService.disconnect();
     await tokenStorage.setKeepSignedIn(keepSignedIn);
     await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
     if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
@@ -242,10 +244,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ─── Sign In with Google ────────────────────
   const signInWithGoogle = useCallback(
-    async (idToken: string, keepSignedIn = true, role?: string): Promise<void> => {
+    async (idToken: string, keepSignedIn = true, role?: string, nonce?: string): Promise<void> => {
       const version = ++sessionVersion.current;
-      const data = await authService.loginWithGoogle(idToken, role);
+      const data = await authService.loginWithGoogle(idToken, role, nonce);
       if (version !== sessionVersion.current) return;
+      socketService.disconnect();
       await tokenStorage.setKeepSignedIn(keepSignedIn);
       await tokenStorage.saveTokens(data.accessToken, data.refreshToken, keepSignedIn);
       if (version === sessionVersion.current) dispatch({ type: 'SIGN_IN', user: data.user });
@@ -255,6 +258,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // ─── Sign Out ───────────────────────────────
   const signOut = useCallback(async (): Promise<void> => {
+    socketService.disconnect();
     sessionVersion.current += 1;
     dispatch({ type: 'SIGN_OUT' });
     try {
@@ -285,25 +289,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: 'UPDATE_USER', user: updatedUser });
   }, []);
 
-  // ─── One-Tap Dev / Preview Login ───────────
-  const devLogin = useCallback(
-    (role: 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN' = 'COLLECTOR') => {
-      dispatch({
-        type: 'SIGN_IN',
-        user: {
-          id: '00000000-0000-0000-0000-000000000002',
-          email: 'kamal.perera@econexus.com',
-          name: 'Kamal Perera',
-          phone: '+94 77 123 4567',
-          role,
-          status: 'ACTIVE',
-          created_at: new Date().toISOString(),
-        },
-      });
-    },
-    []
-  );
-
   const value: AuthContextValue = {
     status: splashReady ? state.status : 'loading',
     user: state.user,
@@ -321,7 +306,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     refreshUser,
     updateUser,
-    devLogin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

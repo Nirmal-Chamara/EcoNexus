@@ -54,33 +54,54 @@ describe('verification account state flow', () => {
         rejectionReason: 'Please provide a current registration document.',
       }),
     });
-    expect(mockedPool.query).toHaveBeenCalledWith(expect.stringContaining('"rejectionReason"'), [
-      'user-id',
-    ]);
+    expect(mockedPool.query).toHaveBeenCalledWith(
+      expect.stringContaining('"rejectionReason"'),
+      ['user-id']
+    );
   });
 
   it('sets rejected users to REJECTED and invalidates their sessions', async () => {
     const client = {
-      query: jest
-        .fn()
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce({
-          rows: [
-            {
-              status: 'PENDING',
-              user_id: 'user-id',
-              requested_role: 'COLLECTOR',
-            },
-          ],
-        })
-        .mockResolvedValue(undefined),
+      query: jest.fn(async (sql: string, values?: string[]) => {
+        if (sql.startsWith('SELECT id, role, status'))
+          return {
+            rows: [
+              {
+                id: values?.[0],
+                email_verified_at: '2026-11-16',
+                role: values?.[0] === 'admin-id' ? 'ADMIN' : 'COLLECTOR',
+                status:
+                  values?.[0] === 'admin-id'
+                    ? 'ACTIVE'
+                    : 'PENDING_VERIFICATION',
+              },
+            ],
+          };
+        if (sql.startsWith('SELECT user_id'))
+          return { rows: [{ user_id: 'user-id' }] };
+        if (sql.startsWith('SELECT * FROM verification_requests'))
+          return {
+            rows: [
+              {
+                id: 'verification-id',
+                status: 'PENDING',
+                user_id: 'user-id',
+                requested_role: 'COLLECTOR',
+              },
+            ],
+          };
+        return { rows: [] };
+      }),
       release: jest.fn(),
     };
     mockedPool.connect.mockResolvedValue(client as never);
 
     const req = {
       params: { id: 'verification-id' },
-      body: { status: 'REJECTED', review_note: 'Please provide a current document.' },
+      body: {
+        status: 'REJECTED',
+        review_note: 'Please provide a current document.',
+      },
       user: { id: 'admin-id' },
     } as unknown as Request;
     const res = response();
@@ -90,7 +111,9 @@ describe('verification account state flow', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(client.query).toHaveBeenCalledWith(
-      expect.stringContaining("SET status = 'REJECTED', token_version = token_version + 1"),
+      expect.stringContaining(
+        "SET status = 'REJECTED', token_version = token_version + 1"
+      ),
       ['user-id']
     );
     expect(client.release).toHaveBeenCalled();
@@ -139,7 +162,9 @@ describe('verification account state flow', () => {
       message: 'User details retrieved successfully',
       data: expect.objectContaining({
         id: 'user-id',
-        activity: [expect.objectContaining({ action: 'USER_STATUS_CHANGED_TO_ACTIVE' })],
+        activity: [
+          expect.objectContaining({ action: 'USER_STATUS_CHANGED_TO_ACTIVE' }),
+        ],
       }),
     });
   });

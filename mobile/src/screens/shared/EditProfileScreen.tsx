@@ -21,17 +21,9 @@ import { Button } from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { mapApiError } from '../../utils/errorMapper';
+import { editProfileSchema, editProfileSchemaForPhone } from '../../schemas/contact.schema';
 
 // ─── Validation Schema ────────────────────────────────────────────────────────
-const editProfileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(80, 'Name is too long').trim(),
-  phone: z
-    .string()
-    .regex(/^\+?[0-9\s\-()]{7,20}$/, 'Enter a valid phone number')
-    .optional()
-    .or(z.literal('')),
-});
-
 type EditProfileForm = z.infer<typeof editProfileSchema>;
 
 // ─── EditProfileScreen ────────────────────────────────────────────────────────
@@ -45,9 +37,9 @@ export default function EditProfileScreen() {
     handleSubmit,
     reset,
     setError,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, dirtyFields },
   } = useForm<EditProfileForm>({
-    resolver: zodResolver(editProfileSchema),
+    resolver: zodResolver(editProfileSchemaForPhone(user?.phone ?? '')),
     defaultValues: {
       name: user?.name ?? '',
       phone: user?.phone ?? '',
@@ -80,30 +72,18 @@ export default function EditProfileScreen() {
       navigation.goBack();
       return;
     }
-    const previousProfile = {
-      name: user?.name ?? '',
-      phone: user?.phone ?? null,
-    };
-    const optimisticProfile = {
-      name: data.name.trim(),
-      phone: data.phone?.trim() || null,
-    };
-
     setIsSaving(true);
-    updateUser(optimisticProfile);
     try {
       const updated = await userService.updateMe({
-        name: optimisticProfile.name,
-        phone: optimisticProfile.phone ?? undefined,
+        ...(dirtyFields.name ? { name: data.name } : {}),
+        ...(dirtyFields.phone ? { phone: data.phone || null } : {}),
       });
-      // Reconcile the optimistic state with the canonical server response.
       updateUser({ name: updated.name, phone: updated.phone ?? null });
       reset({ name: updated.name, phone: updated.phone ?? '' });
       Alert.alert('Profile Updated', 'Your profile has been saved successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: unknown) {
-      updateUser(previousProfile);
       if (
         axios.isAxiosError<{ code?: string }>(error) &&
         error.response?.data.code === 'PHONE_EXISTS'
@@ -187,6 +167,7 @@ export default function EditProfileScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <FormInput
                 label="Phone Number (optional)"
+                accessibilityHint="Include your country code. Saving a number does not verify ownership."
                 placeholder="+94 77 123 4567"
                 value={value}
                 onChangeText={onChange}

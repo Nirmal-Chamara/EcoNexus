@@ -4,7 +4,9 @@ export const userQuerySchema = z.object({
   query: z.object({
     search: z.string().optional(),
     role: z.enum(['USER', 'COLLECTOR', 'RECYCLING_CENTER', 'ADMIN']).optional(),
-    status: z.enum(['ACTIVE', 'PENDING_VERIFICATION', 'REJECTED', 'SUSPENDED']).optional(),
+    status: z
+      .enum(['ACTIVE', 'PENDING_VERIFICATION', 'REJECTED', 'SUSPENDED'])
+      .optional(),
     page: z.string().regex(/^\d+$/).optional().transform(Number),
     limit: z.string().regex(/^\d+$/).optional().transform(Number),
   }),
@@ -14,18 +16,25 @@ export const updateUserStatusSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid user ID'),
   }),
-  body: z.object({
-    status: z.enum(['ACTIVE', 'PENDING_VERIFICATION', 'REJECTED', 'SUSPENDED']),
-    reason: z.string().trim().max(500).optional(),
-  }).superRefine((body, context) => {
-    if (body.status === 'SUSPENDED' && !body.reason) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['reason'],
-        message: 'A reason is required when suspending an account',
-      });
-    }
-  }).strict(),
+  body: z
+    .object({
+      status: z.enum(['ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED']),
+      reason: z
+        .string()
+        .trim()
+        .min(1, 'A reason is required for account status changes')
+        .max(500),
+    })
+    .superRefine((body, context) => {
+      if (body.status === 'SUSPENDED' && !body.reason) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['reason'],
+          message: 'A reason is required when suspending an account',
+        });
+      }
+    })
+    .strict(),
 });
 
 export const adminUserIdSchema = z.object({
@@ -46,19 +55,19 @@ export const processVerificationSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid verification ID'),
   }),
-  body: z.object({
-    status: z.enum(['APPROVED', 'REJECTED']),
-    review_note: z.string().trim().max(500).optional(),
-  }).superRefine((body, context) => {
-    if (body.status === 'REJECTED' && !body.review_note) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['review_note'],
-        message: 'A reason is required when rejecting a verification request',
-      });
-    }
-  }).strict(),
+  body: z
+    .object({
+      status: z.enum(['APPROVED', 'REJECTED']),
+      review_note: z.string().trim().max(500).optional(),
+    })
+    .superRefine((body, context) => {
+      if (body.status === 'REJECTED' && !body.review_note) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['review_note'],
+          message: 'A reason is required when rejecting a verification request',
+        });
+      }
+    })
+    .strict(),
 });
-
-
-

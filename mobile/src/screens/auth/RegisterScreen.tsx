@@ -26,6 +26,7 @@ import { radii, spacing, typography } from '../../theme';
 import { registerFormSchema } from '../../schemas/auth.schema';
 import { mapApiError } from '../../utils/errorMapper';
 import axios from 'axios';
+import { enrollmentAccountRole } from '../../navigation/enrollment';
 
 type RegisterForm = z.infer<typeof registerFormSchema>;
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -112,12 +113,7 @@ export default function RegisterScreen({ navigation, route }: Props) {
   const { signUp } = useAuth();
   const partnerMode = route.params?.partner === true;
   const paramRole = route.params?.role;
-  const defaultRole: Exclude<UserRole, 'ADMIN'> =
-    paramRole === 'center'
-      ? 'RECYCLING_CENTER'
-      : paramRole === 'collector' || partnerMode
-      ? 'COLLECTOR'
-      : 'USER';
+  const defaultRole = enrollmentAccountRole(paramRole, partnerMode);
 
   const [step, setStep] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
@@ -444,6 +440,7 @@ export default function RegisterScreen({ navigation, route }: Props) {
                       autoComplete="tel"
                       returnKeyType="next"
                       accessibilityLabel="Phone number (optional)"
+                      accessibilityHint="Include your country code, for example +94. Saving a number does not verify ownership."
                       onSubmitEditing={() => passwordRef.current?.focus()}
                       style={styles.textInput}
                     />

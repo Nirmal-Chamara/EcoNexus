@@ -87,8 +87,13 @@ export class PickupController {
    */
   static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      if (!req.user) throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
       const { id } = req.params;
       const result = await PickupService.getPickupById(id);
+      if (req.user.role !== 'ADMIN' && result.user_id !== req.user.id &&
+          !(req.user.role === 'COLLECTOR' && result.allocation?.collector_id === req.user.id)) {
+        throw new AppError(403, 'You cannot access this pickup request', 'FORBIDDEN');
+      }
 
       res.status(200).json({
         message: 'Pickup request retrieved',

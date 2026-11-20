@@ -21,7 +21,6 @@ interface Props {
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
   const [sent, setSent] = useState(false);
-  const [devToken, setDevToken] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const {
     control,
@@ -35,10 +34,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const submit = async ({ email }: FormData) => {
     setRequestError(null);
     try {
-      const res = await authService.requestPasswordReset(email.trim().toLowerCase());
-      if (res?.devResetToken) {
-        setDevToken(res.devResetToken);
-      }
+      await authService.requestPasswordReset(email.trim().toLowerCase());
       setSent(true);
     } catch (error: unknown) {
       setRequestError(mapApiError(error, 'Unable to submit the request. Try again.'));
@@ -58,24 +54,13 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
         {sent ? (
           <View>
             <Text style={styles.success}>
-              If an account exists for that email, a reset code has been sent. Check your inbox and
-              enter the code in the next step.
+              If this account supports password recovery, instructions will be emailed. Check your
+              inbox and use the code or link from that message.
             </Text>
-            {devToken ? (
-              <View style={styles.devCard}>
-                <Text style={styles.devLabel}>[Dev Mode] Generated Reset Code:</Text>
-                <Text style={styles.devCode} selectable>
-                  {devToken}
-                </Text>
-              </View>
-            ) : null}
             <Button
               title="Enter reset code"
               onPress={() =>
-                navigation?.navigate(
-                  'ResetPassword',
-                  devToken ? { token: devToken } : undefined
-                )
+                navigation?.navigate('ResetPassword')
               }
               style={styles.button}
             />
@@ -88,6 +73,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               render={({ field: { onChange, onBlur, value } }) => (
                 <FormInput
                   label="Email address"
+                  accessibilityLabel="Email address"
                   placeholder="you@example.com"
                   value={value}
                   onChangeText={onChange}
@@ -129,14 +115,4 @@ const styles = StyleSheet.create({
   success: { ...typography.body, color: colors.success, lineHeight: 24, marginBottom: 16 },
   error: { ...typography.caption, color: colors.error, marginTop: 4 },
   button: { marginTop: 20, marginBottom: 12 },
-  devCard: {
-    backgroundColor: colors.surfaceAlt,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  devLabel: { ...typography.caption, color: colors.textSecondary, marginBottom: 4 },
-  devCode: { ...typography.caption, color: colors.primary, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
 });

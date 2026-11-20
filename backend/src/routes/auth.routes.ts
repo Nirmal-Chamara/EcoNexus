@@ -10,6 +10,7 @@ import {
   resetPasswordRequestSchema,
   resetPasswordConfirmSchema,
   googleAuthSchema,
+  emailVerificationConfirmSchema,
 } from '../validators/auth.validator';
 
 const router = Router();
@@ -17,6 +18,8 @@ const router = Router();
 router.post('/register', authLimiter, validateRequest(registerSchema), AuthController.register);
 router.post('/login', authLimiter, validateRequest(loginSchema), AuthController.login);
 router.post('/google', authLimiter, validateRequest(googleAuthSchema), AuthController.googleLogin);
+router.post('/email-verification/request', authenticate, forgotPasswordLimiter, AuthController.requestEmailVerification);
+router.post('/email-verification/confirm', authenticate, authLimiter, validateRequest(emailVerificationConfirmSchema), AuthController.confirmEmailVerification);
 router.post(
   '/forgot-password',
   forgotPasswordLimiter,

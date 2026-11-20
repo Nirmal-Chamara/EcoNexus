@@ -6,9 +6,9 @@
  * Features:
  *  • Avatar card with role/status badges
  *  • Account metadata (email, phone, joined date)
- *  • One-tap status change actions (ACTIVE, SUSPENDED, REJECTED)
+ *  • Account restoration/suspension with required audit reasons
  *  • Confirmation alerts before destructive actions
- *  • Optimistic state update reflected immediately in the UI
+ *  • Server-confirmed state reflected after successful requests
  *  • Back button with slide animation
  */
 
@@ -216,6 +216,8 @@ export default function UserDetailScreen() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [suspensionModalVisible, setSuspensionModalVisible] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [requestedStatus, setRequestedStatus] =
+    useState<Exclude<AccountStatus, 'REJECTED'>>('SUSPENDED');
 
   useEffect(() => {
     let active = true;
@@ -240,7 +242,7 @@ export default function UserDetailScreen() {
 
   // ── Status Change ──────────────────────────────────────────────────────────
   const changeStatus = useCallback(
-    (newStatus: AccountStatus, confirmMessage: string, reason?: string) => {
+    (newStatus: Exclude<AccountStatus, 'REJECTED'>, confirmMessage: string, reason: string) => {
       if (user.status === newStatus) return;
 
       const executeAction = async () => {
@@ -249,7 +251,7 @@ export default function UserDetailScreen() {
           setError(null);
           const res = await adminService.updateUserStatus(user.id, newStatus, reason);
           // Merge updated fields (backend returns id, name, email, status, role)
-          setUser((prev) => ({ ...prev, ...res.data, status: newStatus }));
+          setUser((prev) => ({ ...prev, ...res.data }));
         } catch (error: unknown) {
           setError(mapApiError(error, 'Action failed. Please try again.'));
         } finally {
@@ -258,7 +260,10 @@ export default function UserDetailScreen() {
       };
 
       if (Platform.OS === 'web') {
-        const confirmed = typeof window !== 'undefined' ? window.confirm(`Confirm Action:\n\n${confirmMessage}`) : true;
+        const confirmed =
+          typeof window !== 'undefined'
+            ? window.confirm(`Confirm Action:\n\n${confirmMessage}`)
+            : true;
         if (confirmed) {
           void executeAction();
         }
@@ -394,22 +399,22 @@ export default function UserDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Account Actions</Text>
             <Text style={styles.sectionHint}>
-              Changing status will immediately invalidate the user's active sessions.
+              Status changes invalidate active sessions. Approve or reject partner applications
+              through the verification queue.
             </Text>
             <View style={styles.actionsGrid}>
               <ActionButton
                 icon="✅"
                 label="Activate"
-                sublabel="Allow full access"
+                sublabel="Restore eligible account"
                 variant="success"
-                disabled={user.status === 'ACTIVE'}
+                disabled={user.status !== 'SUSPENDED'}
                 loading={loadingAction === 'ACTIVE'}
-                onPress={() =>
-                  changeStatus(
-                    'ACTIVE',
-                    `Activate ${user.name}'s account? They will regain full access.`
-                  )
-                }
+                onPress={() => {
+                  setRequestedStatus('ACTIVE');
+                  setSuspensionReason('');
+                  setSuspensionModalVisible(true);
+                }}
               />
               <ActionButton
                 icon="🚫"
@@ -419,23 +424,26 @@ export default function UserDetailScreen() {
                 disabled={user.status === 'SUSPENDED'}
                 loading={loadingAction === 'SUSPENDED'}
                 onPress={() => {
+                  setRequestedStatus('SUSPENDED');
                   setSuspensionReason('');
                   setSuspensionModalVisible(true);
                 }}
               />
               <ActionButton
                 icon="❌"
-                label="Reject"
-                sublabel="Permanently deny"
-                variant="danger"
-                disabled={user.status === 'REJECTED'}
-                loading={loadingAction === 'REJECTED'}
-                onPress={() =>
-                  changeStatus(
-                    'REJECTED',
-                    `Reject ${user.name}'s account? This will permanently deny their access.`
-                  )
+                label="Return to review"
+                sublabel="Restore pending application"
+                variant="muted"
+                disabled={
+                  user.status !== 'SUSPENDED' ||
+                  !['COLLECTOR', 'RECYCLING_CENTER'].includes(user.role)
                 }
+                loading={loadingAction === 'PENDING_VERIFICATION'}
+                onPress={() => {
+                  setRequestedStatus('PENDING_VERIFICATION');
+                  setSuspensionReason('');
+                  setSuspensionModalVisible(true);
+                }}
               />
             </View>
           </View>
@@ -459,7 +467,9 @@ export default function UserDetailScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Suspend {user.name}?</Text>
+            <Text style={styles.modalTitle}>
+              Change {user.name}'s status to {getStatusLabel(requestedStatus)}?
+            </Text>
             <Text style={styles.modalHint}>
               Their active sessions will be invalidated. Enter the reason for the audit record.
             </Text>
@@ -471,22 +481,22 @@ export default function UserDetailScreen() {
               placeholderTextColor={colors.textMuted}
               multiline
               maxLength={500}
-              accessibilityLabel="Reason for suspending account"
+              accessibilityLabel="Reason for account status change"
             />
             <ActionButton
-              label="Confirm suspension"
+              label="Confirm status change"
               sublabel="This action will be recorded"
               icon="🚫"
               variant="danger"
               disabled={!suspensionReason.trim()}
-              loading={loadingAction === 'SUSPENDED'}
+              loading={loadingAction === requestedStatus}
               onPress={() => {
                 const reason = suspensionReason.trim();
                 if (!reason) return;
                 setSuspensionModalVisible(false);
                 changeStatus(
-                  'SUSPENDED',
-                  `Suspend ${user.name}'s account? Their active sessions will be invalidated.`,
+                  requestedStatus,
+                  `Change ${user.name}'s status to ${getStatusLabel(requestedStatus)}? Their active sessions will be invalidated.`,
                   reason
                 );
               }}

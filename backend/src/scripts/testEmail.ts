@@ -1,18 +1,10 @@
-import { sendPasswordResetEmail } from '../services/email.service';
-import { logger } from '../utils/logger';
+import { randomUUID } from 'crypto';
+import { configuredMailProvider, sendTransactionalEmail } from '../services/email.service';
 
 async function main() {
-  const recipient = process.argv[2] || 'econexus.lk@gmail.com';
-  logger.info(`Sending test password-reset email to: ${recipient}...`);
-
-  try {
-    await sendPasswordResetEmail(recipient, 'TEST-RESET-123456');
-    logger.info(`Test email sent successfully! Please check inbox / spam for: ${recipient}`);
-  } catch (err: any) {
-    logger.error(`Failed to send test email: ${err.message}`);
-    process.exit(1);
-  }
+  const recipient = process.argv[2];
+  if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new Error('An explicit test recipient is required');
+  await sendTransactionalEmail(configuredMailProvider(), randomUUID(), recipient, 'EcoNexus sender configuration check', 'This is a sender configuration check. It contains no account reset or verification credential.');
+  console.log('Email accepted by provider. Confirm actual receipt separately.');
 }
-
-main();
-
+if (require.main === module) void main().catch(() => { console.error('Email sender check failed; review configuration and provider status'); process.exitCode = 1; });
