@@ -11,6 +11,7 @@ import {
   Linking,
   Platform,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
@@ -35,6 +36,10 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [isWeighModalVisible, setIsWeighModalVisible] = useState(false);
+  const [scaleWeight, setScaleWeight] = useState(8.0);
+  const [extraCompletedCount, setExtraCompletedCount] = useState(0);
+  const [extraVolumeKg, setExtraVolumeKg] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
