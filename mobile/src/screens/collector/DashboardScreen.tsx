@@ -19,6 +19,7 @@ import { collectorService } from '../../services/collector.service';
 import { pickupService } from '../../services/pickup.service';
 import { CollectorProfile, PickupRequest } from '../../types/collector';
 import * as Location from 'expo-location';
+import UpdateCollectionScreen from './UpdateCollectionScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -331,7 +332,7 @@ export default function DashboardScreen() {
       <View style={styles.quickBar}>
         <TouchableOpacity
           style={styles.quickActionItem}
-          onPress={() => Alert.alert('QR Scanner', 'Weighing scale QR scanner initiated.')}
+          onPress={() => setIsWeighModalVisible(true)}
         >
           <Text style={styles.quickActionIcon}>⛶</Text>
           <Text style={styles.quickActionLabel}>QR Scan</Text>
@@ -341,7 +342,7 @@ export default function DashboardScreen() {
 
         <TouchableOpacity
           style={styles.quickActionItem}
-          onPress={() => Alert.alert('Scale Sync', 'Connecting to wireless digital Bluetooth scale...')}
+          onPress={() => setIsWeighModalVisible(true)}
         >
           <Text style={styles.quickActionIcon}>⚖️</Text>
           <Text style={styles.quickActionLabel}>Scale Sync</Text>
@@ -470,11 +471,7 @@ export default function DashboardScreen() {
             <TouchableOpacity
               style={styles.qrWeighBtn}
               onPress={() => {
-                if (activeJob) {
-                  handleAdvancePickup(activeJob.id, 'COMPLETED');
-                } else {
-                  Alert.alert('Weighing Scale', 'Ready to weigh collected load.');
-                }
+                setIsWeighModalVisible(true);
               }}
             >
               <Text style={styles.qrWeighBtnText}>⛶ Open QR Scanner to Weigh</Text>
@@ -666,6 +663,19 @@ export default function DashboardScreen() {
         </View>
         <Text style={styles.tierPercent}>80%</Text>
       </View>
+
+      {/* ── Weighing & Mission Verification Modal (Figma Screen 3) ── */}
+      <Modal
+        visible={isWeighModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsWeighModalVisible(false)}
+      >
+        <UpdateCollectionScreen
+          pickupId={activeJob?.id || 'ECO-8492'}
+          onClose={() => setIsWeighModalVisible(false)}
+        />
+      </Modal>
     </ScrollView>
   );
 }
