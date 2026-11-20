@@ -10,10 +10,12 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import RequestsScreen from '../screens/collector/RequestsScreen';
 import RequestDetailsScreen from '../screens/collector/RequestDetailsScreen';
+import UpdateCollectionScreen from '../screens/collector/UpdateCollectionScreen';
 
 export type CollectorRequestsStackParamList = {
   RequestsList: undefined;
   RequestDetails: { pickupId: string };
+  UpdateCollection: { pickupId: string };
 };
 
 const Stack = createNativeStackNavigator<CollectorRequestsStackParamList>();
@@ -30,6 +32,7 @@ export function RequestsStackNavigator() {
     >
       <Stack.Screen name="RequestsList" component={RequestsScreen} />
       <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} />
+      <Stack.Screen name="UpdateCollection" component={UpdateCollectionScreen} />
     </Stack.Navigator>
   );
 }

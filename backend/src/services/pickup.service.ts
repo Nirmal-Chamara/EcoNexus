@@ -1,4 +1,4 @@
-import { PickupRequestModel, CreatePickupDto } from '../models/pickupRequest.model';
+import { PickupRequestModel, CreatePickupDto, VerifyWeighDto } from '../models/pickupRequest.model';
 import { CollectorModel } from '../models/collector.model';
 import { AppError } from '../utils/AppError';
 import { emitToNearbyCollectors, emitPickupStatusUpdate } from '../sockets/pickup.socket';
@@ -140,5 +140,54 @@ export class PickupService {
     }
 
     return updated;
+  }
+
+  /**
+   * Collector verifies citizen handshake PIN and records certified scale weight
+   */
+  static async verifyAndWeighPickup(
+    pickupId: string,
+    collectorId: string,
+    data: VerifyWeighDto,
+    userRole: string = 'COLLECTOR'
+  ) {
+    const pickup = await PickupRequestModel.findById(pickupId);
+    if (!pickup) {
+      throw new AppError(404, 'Pickup request not found', 'NOT_FOUND');
+    }
+
+    // Verify collector assignment unless admin
+    if (userRole !== 'ADMIN') {
+      const allocation = await PickupRequestModel.getAllocation(pickupId);
+      if (!allocation || allocation.collector_id !== collectorId) {
+        throw new AppError(403, 'You are not assigned to this pickup request', 'FORBIDDEN');
+      }
+    }
+
+    // Validate that pickup is in an acceptable state (ACCEPTED or IN_TRANSIT)
+    if (pickup.status !== 'ACCEPTED' && pickup.status !== 'IN_TRANSIT') {
+      throw new AppError(
+        400,
+        `Cannot verify weighing for pickup in status '${pickup.status}'. Pickup must be ACCEPTED first.`,
+        'INVALID_STATE'
+      );
+    }
+
+    const verified = await PickupRequestModel.verifyAndWeigh(pickupId, collectorId, data);
+
+    // Notify citizen in real-time
+    try {
+      emitPickupStatusUpdate(pickupId, {
+        status: 'IN_TRANSIT',
+        verifiedWeight: verified.actual_weight,
+        payoutAmount: verified.payout_amount,
+        pointsAwarded: verified.points_awarded,
+        verifiedAt: verified.verified_at,
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    return verified;
   }
 }

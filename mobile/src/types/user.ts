@@ -11,6 +11,7 @@ export interface UserSummary {
   status: AccountStatus;
   /** Optional until the backend includes the latest verification review note in /users/me. */
   rejectionReason?: string | null;
+  organization_name?: string | null;
 }
 
 /** GET/PATCH /users/me JSON payload. Dates are serialized ISO strings. */

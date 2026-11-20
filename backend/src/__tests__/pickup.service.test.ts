@@ -150,5 +150,89 @@ describe('PickupService', () => {
       ).rejects.toThrow(AppError);
     });
   });
+
+  describe('verifyAndWeighPickup', () => {
+    it('successfully verifies handshake PIN, records scale weight, and emits socket update', async () => {
+      const mockPickup = { id: 'pickup-1', status: 'ACCEPTED', verification_pin: '4821' };
+      const mockAllocation = { collector_id: 'collector-1' };
+      const mockVerified = {
+        id: 'pickup-1',
+        status: 'IN_TRANSIT',
+        actual_weight: 8.15,
+        payout_amount: 8.4,
+        points_awarded: 245,
+        verified_at: '2026-11-20T09:00:00Z',
+      };
+
+      (PickupRequestModel.findById as jest.Mock).mockResolvedValue(mockPickup);
+      (PickupRequestModel.getAllocation as jest.Mock).mockResolvedValue(mockAllocation);
+      (PickupRequestModel.verifyAndWeigh as jest.Mock).mockResolvedValue(mockVerified);
+
+      const result = await PickupService.verifyAndWeighPickup(
+        'pickup-1',
+        'collector-1',
+        {
+          handshakePin: '4821',
+          actualWeight: 8.15,
+          materials: [
+            { name: 'PET Plastic Bottles', weight: 5.15 },
+            { name: 'Corrugated Cardboard', weight: 3.0 },
+          ],
+        },
+        'COLLECTOR'
+      );
+
+      expect(PickupRequestModel.verifyAndWeigh).toHaveBeenCalledWith(
+        'pickup-1',
+        'collector-1',
+        expect.objectContaining({
+          handshakePin: '4821',
+          actualWeight: 8.15,
+        })
+      );
+      expect(socketModule.emitPickupStatusUpdate).toHaveBeenCalledWith('pickup-1', {
+        status: 'IN_TRANSIT',
+        verifiedWeight: 8.15,
+        payoutAmount: 8.4,
+        pointsAwarded: 245,
+        verifiedAt: '2026-11-20T09:00:00Z',
+      });
+      expect(result.actual_weight).toBe(8.15);
+    });
+
+    it('rejects verification if pickup is in PENDING state (must be ACCEPTED first)', async () => {
+      const mockPickup = { id: 'pickup-1', status: 'PENDING' };
+      const mockAllocation = { collector_id: 'collector-1' };
+
+      (PickupRequestModel.findById as jest.Mock).mockResolvedValue(mockPickup);
+      (PickupRequestModel.getAllocation as jest.Mock).mockResolvedValue(mockAllocation);
+
+      await expect(
+        PickupService.verifyAndWeighPickup(
+          'pickup-1',
+          'collector-1',
+          { handshakePin: '4821', actualWeight: 8.15 },
+          'COLLECTOR'
+        )
+      ).rejects.toThrow(AppError);
+    });
+
+    it('rejects verification if collector is not the assigned driver', async () => {
+      const mockPickup = { id: 'pickup-1', status: 'ACCEPTED' };
+      const mockAllocation = { collector_id: 'collector-OTHER' };
+
+      (PickupRequestModel.findById as jest.Mock).mockResolvedValue(mockPickup);
+      (PickupRequestModel.getAllocation as jest.Mock).mockResolvedValue(mockAllocation);
+
+      await expect(
+        PickupService.verifyAndWeighPickup(
+          'pickup-1',
+          'collector-1',
+          { handshakePin: '4821', actualWeight: 8.15 },
+          'COLLECTOR'
+        )
+      ).rejects.toThrow(AppError);
+    });
+  });
 });
 

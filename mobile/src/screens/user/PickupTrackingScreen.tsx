@@ -12,7 +12,11 @@ import {
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import {
+  SafeMapView as MapView,
+  SafeMarker as Marker,
+  SafePolyline as Polyline,
+} from '../../components/common/SafeMapView';
 import { colors } from '../../theme/colors';
 import { StatusBadge } from '../../components/status/StatusBadge';
 import { ProgressTracker } from '../../components/status/ProgressTracker';
@@ -39,7 +43,7 @@ export default function PickupTrackingScreen() {
     longitude: number;
   } | null>(null);
 
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<any>(null);
   const { isConnected, subscribeToPickup, subscribeToCollectorLocation } = useSocket({
     autoConnect: true,
   });
@@ -466,7 +470,7 @@ const styles = StyleSheet.create({
     width: width,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   pickupMarker: {
     backgroundColor: '#FFFFFF',

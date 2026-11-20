@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     ...onboardingTheme.cardShadow,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   pickupPin: {
     backgroundColor: '#FFFFFF',
