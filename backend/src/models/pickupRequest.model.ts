@@ -11,22 +11,32 @@ export interface CreatePickupDto {
   notes?: string;
   images?: string[];
   scheduledTime?: string;
+  verificationPin?: string;
+}
+
+export interface VerifyWeighDto {
+  handshakePin: string;
+  actualWeight: number;
+  materials?: Array<{ name: string; weight: number; sub?: string; category?: string }>;
+  scalePhotoUrl?: string;
+  notes?: string;
 }
 
 export class PickupRequestModel {
   static async createRequest(data: CreatePickupDto) {
+    const pin = data.verificationPin || String(Math.floor(1000 + Math.random() * 9000));
     // PostGIS ST_MakePoint takes (Longitude, Latitude)
     const query = `
       INSERT INTO pickup_requests (
         user_id, pickup_location, address_text, waste_type,
-        estimated_weight, notes, images, scheduled_time
+        estimated_weight, notes, images, scheduled_time, verification_pin
       )
       VALUES (
-        $1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5, $6, $7, $8, $9
+        $1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5, $6, $7, $8, $9, $10
       )
       RETURNING 
         id, user_id, address_text, waste_type, estimated_weight, 
-        status, notes, images, scheduled_time, created_at;
+        status, notes, images, scheduled_time, verification_pin, created_at;
     `;
     const result = await db.query(query, [
       data.userId,
@@ -38,6 +48,7 @@ export class PickupRequestModel {
       data.notes || null,
       data.images || null,
       data.scheduledTime || null,
+      pin,
     ]);
 
     const created = result.rows[0];
@@ -220,6 +231,124 @@ export class PickupRequestModel {
 
       await client.query('COMMIT');
       return reqResult.rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async verifyAndWeigh(requestId: string, collectorId: string, data: VerifyWeighDto) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Fetch pickup request
+      const reqRes = await client.query('SELECT * FROM pickup_requests WHERE id = $1 FOR UPDATE;', [requestId]);
+      if (reqRes.rows.length === 0) {
+        throw new AppError(404, 'Pickup request not found', 'NOT_FOUND');
+      }
+      const pickup = reqRes.rows[0];
+
+      // 2. Validate handshake PIN
+      const storedPin = (pickup.verification_pin || '').trim();
+      const submittedPin = (data.handshakePin || '').trim();
+      if (!storedPin || storedPin !== submittedPin) {
+        throw new AppError(
+          400,
+          `Invalid handshake PIN '${submittedPin}'. Please confirm the 4-digit code with the citizen.`,
+          'INVALID_HANDSHAKE_PIN'
+        );
+      }
+
+      // 3. Calculate payout and eco-points
+      let payout = 0;
+      if (data.materials && data.materials.length > 0) {
+        payout = data.materials.reduce((sum, m) => {
+          const lower = (m.name || '').toLowerCase();
+          const rate = lower.includes('plastic')
+            ? 0.25
+            : lower.includes('cardboard') || lower.includes('paper')
+            ? 0.15
+            : lower.includes('metal')
+            ? 0.55
+            : lower.includes('e-waste')
+            ? 1.45
+            : 1.03;
+          return sum + (Number(m.weight) || 0) * rate;
+        }, 0);
+      }
+      if (payout <= 0) {
+        payout = Number((data.actualWeight * 1.03).toFixed(2));
+      } else {
+        payout = Number(payout.toFixed(2));
+      }
+      const points = Math.round(data.actualWeight * 30);
+
+      // 4. Update pickup request
+      const updateRes = await client.query(
+        `
+        UPDATE pickup_requests
+        SET status = 'IN_TRANSIT',
+            actual_weight = $2,
+            weighed_materials = $3,
+            scale_photo_url = $4,
+            payout_amount = $5,
+            points_awarded = $6,
+            verified_at = now(),
+            updated_at = now()
+        WHERE id = $1
+        RETURNING *;
+        `,
+        [
+          requestId,
+          data.actualWeight,
+          JSON.stringify(data.materials || []),
+          data.scalePhotoUrl || null,
+          payout,
+          points,
+        ]
+      );
+
+      // 5. Update allocation status
+      await client.query(
+        `
+        UPDATE pickup_allocations
+        SET status = 'IN_TRANSIT'
+        WHERE pickup_request_id = $1;
+        `,
+        [requestId]
+      );
+
+      // 6. Record timeline progress event
+      try {
+        await client.query(
+          `
+          INSERT INTO pickup_request_events (request_id, status, note, created_at)
+          VALUES ($1, 'IN_TRANSIT', $2, now());
+          `,
+          [
+            requestId,
+            `Weighed at ${data.actualWeight} kg (${data.materials?.map((m) => `${m.name}: ${m.weight}kg`).join(', ') || 'verified'}). Handshake PIN ${submittedPin} validated.`,
+          ]
+        );
+      } catch {
+        // Non-blocking
+      }
+
+      await client.query('COMMIT');
+
+      return {
+        ...updateRes.rows[0],
+        slip: {
+          batchCode: `#ECO-${requestId.substring(0, 4).toUpperCase()}`,
+          verifiedWeight: data.actualWeight,
+          payoutAmount: payout,
+          pointsAwarded: points,
+          nextStop: 'GreenTech Regional Hub #04',
+        },
+      };
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;

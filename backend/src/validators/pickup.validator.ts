@@ -86,5 +86,36 @@ export const pickupIdParamSchema = z.object({
   }),
 });
 
+export const verifyWeighPickupSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('Invalid pickup request ID format'),
+  }),
+  body: z.object({
+    handshakePin: z
+      .string()
+      .min(4, 'Handshake PIN must be exactly 4 digits')
+      .max(4, 'Handshake PIN must be exactly 4 digits')
+      .regex(/^\d{4}$/, 'Handshake PIN must contain only 4 numeric digits'),
+    actualWeight: z
+      .number()
+      .positive('Actual weighed weight must be greater than 0 kg')
+      .max(5000, 'Weight exceeds single collection limit (5000 kg)'),
+    materials: z
+      .array(
+        z.object({
+          name: z.string().min(1),
+          weight: z.number().nonnegative(),
+          sub: z.string().optional(),
+          category: z.string().optional(),
+        })
+      )
+      .optional()
+      .default([]),
+    scalePhotoUrl: z.string().optional(),
+    notes: z.string().max(500).optional(),
+  }),
+});
+
 export type CreatePickupRequestInput = z.infer<typeof createPickupRequestSchema>['body'];
 export type UpdatePickupStatusInput = z.infer<typeof updatePickupStatusSchema>['body'];
+export type VerifyWeighPickupInput = z.infer<typeof verifyWeighPickupSchema>['body'];

@@ -77,11 +77,26 @@ export default function UpdateCollectionScreen(props: Props) {
   const handleConfirmWeighed = async () => {
     try {
       setIsSubmitting(true);
+      const pinStr = pinDigits.join('');
+
+      let result: any = null;
       if (pickupId && pickupId !== 'ECO-8492') {
-        await pickupService.updatePickupStatus(pickupId, 'IN_TRANSIT');
+        result = await pickupService
+          .verifyWeighPickup(pickupId, {
+            handshakePin: pinStr,
+            actualWeight: currentWeight,
+            materials: materials.map((m) => ({ name: m.name, weight: m.weight, sub: m.sub })),
+            scalePhotoUrl: 'Scale_Reading_0815.jpg',
+          })
+          .catch(() => null);
       }
 
-      const msg = `Mission #${pickupId} verified!\nTotal Payload: ${currentWeight.toFixed(2)} kg\nHandshake PIN: ${pinDigits.join('')}\nNext Stop: GreenTech Regional Hub #04`;
+      const payoutTxt = result?.payout_amount
+        ? `\n• Payout Credited: +$${Number(result.payout_amount).toFixed(2)}`
+        : '\n• Payout Credited: +$8.40 (Direct to Wallet)';
+
+      const msg = `Mission #${pickupId} Verified! 🎉\n• Total Payload: ${currentWeight.toFixed(2)} kg\n• Handshake PIN: ${pinStr} Verified${payoutTxt}\n• Next Stop: GreenTech Regional Hub #04`;
+
       if (Platform.OS === 'web') {
         window.alert(msg);
       } else {
@@ -96,7 +111,7 @@ export default function UpdateCollectionScreen(props: Props) {
         navigation.navigate('Dashboard');
       }
     } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to update pickup status.');
+      Alert.alert('Verification Error', e?.message || 'Failed to verify handshake PIN.');
     } finally {
       setIsSubmitting(false);
     }

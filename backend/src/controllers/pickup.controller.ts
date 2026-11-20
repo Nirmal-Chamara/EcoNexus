@@ -148,4 +148,31 @@ export class PickupController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/pickup/:id/verify-weigh
+   * Collector verifies handshake PIN and records scale weights
+   */
+  static async verifyWeigh(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+      }
+
+      const { id } = req.params;
+      const result = await PickupService.verifyAndWeighPickup(
+        id,
+        req.user.id,
+        req.body,
+        req.user.role
+      );
+
+      res.status(200).json({
+        message: 'Pickup verified and weighed successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

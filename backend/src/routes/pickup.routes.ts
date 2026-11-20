@@ -7,6 +7,7 @@ import {
   nearbyPickupQuerySchema,
   updatePickupStatusSchema,
   pickupIdParamSchema,
+  verifyWeighPickupSchema,
 } from '../validators/pickup.validator';
 
 const router = Router();
@@ -59,6 +60,15 @@ router.put(
   authorize('COLLECTOR', 'ADMIN'),
   validateRequest(updatePickupStatusSchema),
   PickupController.updateStatus
+);
+
+// 7. Collector verifies citizen handshake PIN and records scale weight
+router.post(
+  '/:id/verify-weigh',
+  authenticate,
+  authorize('COLLECTOR', 'ADMIN'),
+  validateRequest(verifyWeighPickupSchema),
+  PickupController.verifyWeigh
 );
 
 export default router;
