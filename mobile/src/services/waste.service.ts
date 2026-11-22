@@ -1,5 +1,12 @@
 import { apiClient } from './api';
-import type { ListingInput, WasteCategory, WasteListing } from '../types/waste';
+import type {
+  ListingInput,
+  WasteCategory,
+  WasteListing,
+  WasteSummary,
+} from '../types/waste';
+
+export type { WasteSummary };
 
 export async function getCategories(): Promise<WasteCategory[]> {
   const res = await apiClient.get('/waste/categories');
@@ -13,7 +20,7 @@ export async function getMyListings(
   return res.data.data;
 }
 
-export async function getSummary() {
+export async function getSummary(): Promise<WasteSummary> {
   const res = await apiClient.get('/waste/summary');
   return res.data.data;
 }

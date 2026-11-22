@@ -1,5 +1,3 @@
-import { apiClient } from '../services/api';
-
 export interface WasteCategory {
   id: number;
   name: string;
@@ -13,13 +11,17 @@ export interface ListingImage {
 }
 
 export type ListingStatus =
-  'draft' | 'active' | 'requested' | 'scheduled' | 'collected' | 'cancelled';
+  | 'draft'
+  | 'active'
+  | 'requested'
+  | 'scheduled'
+  | 'collected'
+  | 'cancelled';
 
 export type ContainerSize = 'small' | 'medium' | 'bulk';
 export type Pathway = 'recycle' | 'sell' | 'donate' | 'reuse';
 
-// Shape returned by the API (we will check the exact field names against real
-// data when we build My Listings, next).
+// Shape returned by the API
 export interface WasteListing {
   id: string;
   listing_code?: string;
@@ -58,9 +60,4 @@ export interface ListingInput {
 export interface WasteSummary {
   counts: { active: number; scheduled: number; history: number; drafts: number };
   recycled_kg: number;
-}
-
-export async function getSummary(): Promise<WasteSummary> {
-  const res = await apiClient.get('/waste/summary');
-  return res.data.data;
 }
