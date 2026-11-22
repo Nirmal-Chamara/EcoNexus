@@ -32,3 +32,15 @@ declare module 'expo-crypto' {
   export function randomUUID(): string;
   export function digestStringAsync(...args: any[]): Promise<string>;
 }
+
+declare module '@expo-google-fonts/poppins' {
+  export const Poppins_500Medium: number;
+  export const Poppins_600SemiBold: number;
+  export const Poppins_700Bold: number;
+}
+
+declare module '@expo-google-fonts/inter' {
+  export const Inter_400Regular: number;
+  export const Inter_500Medium: number;
+  export const Inter_600SemiBold: number;
+}
