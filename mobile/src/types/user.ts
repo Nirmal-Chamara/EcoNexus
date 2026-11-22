@@ -1,5 +1,6 @@
 export type Role = 'USER' | 'COLLECTOR' | 'RECYCLING_CENTER' | 'ADMIN';
 export type UserRole = Role;
+export type PublicEnrollmentRole = Exclude<UserRole, 'ADMIN'>;
 export type AccountStatus = 'ACTIVE' | 'PENDING_VERIFICATION' | 'REJECTED' | 'SUSPENDED';
 
 /** Exact user summary returned by login, registration and admin status updates. */
@@ -9,8 +10,10 @@ export interface UserSummary {
   email: string;
   role: UserRole;
   status: AccountStatus;
+  emailVerified?: boolean;
   /** Optional until the backend includes the latest verification review note in /users/me. */
   rejectionReason?: string | null;
+  organization_name?: string | null;
 }
 
 /** GET/PATCH /users/me JSON payload. Dates are serialized ISO strings. */
@@ -34,7 +37,7 @@ export interface RegisterInput {
   name: string;
   email: string;
   password: string;
-  role: UserRole;
+  role: PublicEnrollmentRole;
   phone?: string;
   organizationName?: string;
 }

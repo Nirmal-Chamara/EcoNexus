@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { phoneSchema } from './contact.validator';
 
 export const userRoleSchema = z.enum(['USER', 'COLLECTOR', 'RECYCLING_CENTER', 'ADMIN']);
+export const publicEnrollmentRoleSchema = z.enum(['USER', 'COLLECTOR', 'RECYCLING_CENTER']);
 
 export const registerSchema = z.object({
   body: z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters long').max(100),
+    name: z.string().trim().min(2, 'Name must be at least 2 characters long').max(100),
     email: z.string().email('Invalid email address'),
     password: z
       .string()
@@ -12,8 +14,8 @@ export const registerSchema = z.object({
       .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
       .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
       .regex(/[0-9]/, 'Password must contain at least one number'),
-    phone: z.string().optional(),
-    role: userRoleSchema.default('USER'),
+    phone: phoneSchema.optional(),
+    role: publicEnrollmentRoleSchema.default('USER'),
     organizationName: z.string().trim().min(2).max(150).optional(),
   }).superRefine((body, ctx) => {
     if (
@@ -47,6 +49,9 @@ export const resetPasswordRequestSchema = z.object({
     email: z.string().email('Invalid email address'),
   }),
 });
+export const emailVerificationConfirmSchema = z.object({
+  body: z.object({ token: z.string().trim().regex(/^[a-fA-F0-9]{64}$/, 'Enter the verification code from your email') }).strict(),
+});
 
 export const resetPasswordConfirmSchema = z.object({
   body: z.object({
@@ -70,13 +75,14 @@ export const googleAuthRoleSchema = z
       return upper;
     }
     return val;
-  }, userRoleSchema)
+  }, publicEnrollmentRoleSchema)
   .optional()
   .default('USER');
 
 export const googleAuthSchema = z.object({
   body: z.object({
     idToken: z.string().min(1, 'Google ID token is required'),
+    nonce: z.string().min(16).max(128).optional(),
     role: googleAuthRoleSchema,
   }),
 });

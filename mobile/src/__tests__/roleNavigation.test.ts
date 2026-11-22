@@ -18,6 +18,7 @@ const user = {
   email: 'alex@example.com',
   role: 'USER' as const,
   status: 'ACTIVE' as const,
+  emailVerified: true,
 };
 
 test('root flow maps auth and account states to the correct navigation tree', () => {

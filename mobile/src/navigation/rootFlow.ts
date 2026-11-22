@@ -6,6 +6,7 @@ export type RootFlow =
   | 'onboarding-loading'
   | 'onboarding'
   | 'signed-out'
+  | 'email-verification'
   | 'pending-verification'
   | 'rejected'
   | 'suspended'
@@ -22,6 +23,8 @@ export function getRootFlow(
     return onboardingSeen ? 'signed-out' : 'onboarding';
   }
 
+  if (user.status !== 'SUSPENDED' && user.status !== 'REJECTED' && user.emailVerified !== true)
+    return 'email-verification';
   switch (user.status) {
     case 'PENDING_VERIFICATION':
       return 'pending-verification';

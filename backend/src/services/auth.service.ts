@@ -1,13 +1,26 @@
 import { pool } from '../config/database';
 import { env } from '../config/env';
-import { hashPassword, verifyPassword, dummyVerifyPassword } from '../utils/password';
-import { signAccessToken, hashToken, generateRefreshToken } from '../utils/tokens';
+import {
+  hashPassword,
+  verifyPassword,
+  dummyVerifyPassword,
+} from '../utils/password';
+import {
+  signAccessToken,
+  hashToken,
+  generateRefreshToken,
+} from '../utils/tokens';
 import { generateRandomToken } from '../utils/crypto';
 import { hashSha256 } from '../utils/crypto';
-import { sendPasswordResetEmail } from './email.service';
+import { EmailChallengeService } from './email-challenge.service';
 import { GoogleService } from './google.service';
 import { AppError } from '../utils/AppError';
-import { RegisterInput, LoginInput, GoogleAuthInput } from '../validators/auth.validator';
+import {
+  RegisterInput,
+  LoginInput,
+  GoogleAuthInput,
+  publicEnrollmentRoleSchema,
+} from '../validators/auth.validator';
 import { UserRole, AccountStatus } from '../types/express.d';
 
 export interface AuthSessionResponse {
@@ -17,6 +30,7 @@ export interface AuthSessionResponse {
     name: string;
     role: UserRole;
     status: AccountStatus;
+    emailVerified: boolean;
   };
   accessToken: string;
   refreshToken: string;
@@ -27,6 +41,13 @@ export class AuthService {
    * Transactional user registration
    */
   static async register(input: RegisterInput): Promise<AuthSessionResponse> {
+    if (!publicEnrollmentRoleSchema.safeParse(input.role).success) {
+      throw new AppError(
+        400,
+        'Role is not permitted for public enrollment',
+        'INVALID_ENROLLMENT_ROLE'
+      );
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -37,17 +58,29 @@ export class AuthService {
       );
 
       if (existingUser.rows.length > 0) {
-        throw new AppError(409, 'Email address already registered', 'EMAIL_EXISTS');
+        throw new AppError(
+          409,
+          'Email address already registered',
+          'EMAIL_EXISTS'
+        );
       }
 
       const passwordHash = await hashPassword(input.password);
-      const initialStatus: AccountStatus = input.role === 'USER' ? 'ACTIVE' : 'PENDING_VERIFICATION';
+      const initialStatus: AccountStatus =
+        input.role === 'USER' ? 'ACTIVE' : 'PENDING_VERIFICATION';
 
       const userRes = await client.query(
         `INSERT INTO users (name, email, password_hash, phone, role, status)
          VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, name, email, role, status, token_version`,
-        [input.name, input.email.toLowerCase(), passwordHash, input.phone || null, input.role, initialStatus]
+         RETURNING id, name, email, role, status, token_version, email_verified_at`,
+        [
+          input.name,
+          input.email.toLowerCase(),
+          passwordHash,
+          input.phone || null,
+          input.role,
+          initialStatus,
+        ]
       );
 
       const user = userRes.rows[0];
@@ -60,11 +93,14 @@ export class AuthService {
         );
       }
 
-      // Issue tokens
+      await EmailChallengeService.enqueue(client, user, 'VERIFY_EMAIL');
+      // Issue a restricted session until email ownership is confirmed.
       const rawRefreshToken = generateRefreshToken();
       const hashedRefreshToken = hashToken(rawRefreshToken);
       const familyId = generateRandomToken(16);
-      const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(
+        Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000
+      );
 
       await client.query(
         `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
@@ -87,12 +123,19 @@ export class AuthService {
           email: user.email,
           role: user.role,
           status: user.status,
+          emailVerified: Boolean(user.email_verified_at),
         },
         accessToken,
         refreshToken: rawRefreshToken,
       };
     } catch (err) {
       await client.query('ROLLBACK');
+      if (typeof err === 'object' && err !== null && 'code' in err && err.code === '23505' && 'constraint' in err) {
+        if (err.constraint === 'users_phone_key' || err.constraint === 'idx_users_phone_international')
+          throw new AppError(409, 'Phone number is already in use', 'PHONE_EXISTS');
+        if (err.constraint === 'users_email_key')
+          throw new AppError(409, 'Email address already registered', 'EMAIL_EXISTS');
+      }
       throw err;
     } finally {
       client.release();
@@ -103,83 +146,120 @@ export class AuthService {
    * Constant-time Login with Anti-Enumeration Protection
    */
   static async login(input: LoginInput): Promise<AuthSessionResponse> {
-    const userRes = await pool.query(
-      `SELECT id, name, email, password_hash, role, status, token_version
-       FROM users WHERE email = $1`,
-      [input.email.toLowerCase()]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userRes = await client.query(
+        `SELECT id, name, email, password_hash, role, status, token_version, email_verified_at
+       FROM users WHERE email = $1 FOR UPDATE`,
+        [input.email.toLowerCase()]
+      );
 
-    const user = userRes.rows[0];
+      const user = userRes.rows[0];
 
-    let isValidPassword = false;
-    if (user) {
-      isValidPassword = await verifyPassword(input.password, user.password_hash);
-    } else {
-      // Execute dummy verify to maintain constant-time response (protect against timing attacks / email enumeration)
-      await dummyVerifyPassword(input.password);
-    }
+      let isValidPassword = false;
+      if (user?.password_hash) {
+        isValidPassword = await verifyPassword(
+          input.password,
+          user.password_hash
+        );
+      } else {
+        // Execute dummy verify to maintain constant-time response (protect against timing attacks / email enumeration)
+        await dummyVerifyPassword(input.password);
+      }
 
-    if (!user || !isValidPassword) {
-      throw new AppError(401, 'Invalid email or password credentials', 'INVALID_CREDENTIALS');
-    }
+      if (!user || !isValidPassword) {
+        throw new AppError(
+          401,
+          'Invalid email or password credentials',
+          'INVALID_CREDENTIALS'
+        );
+      }
 
-    if (user.status === 'SUSPENDED' || user.status === 'REJECTED') {
-      throw new AppError(403, `Account is ${user.status.toLowerCase()}`, 'ACCOUNT_DISABLED');
-    }
+      if (user.status === 'SUSPENDED' || user.status === 'REJECTED') {
+        throw new AppError(
+          403,
+          `Account is ${user.status.toLowerCase()}`,
+          'ACCOUNT_DISABLED'
+        );
+      }
 
-    const rawRefreshToken = generateRefreshToken();
-    const hashedRefreshToken = hashToken(rawRefreshToken);
-    const familyId = generateRandomToken(16);
-    const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const rawRefreshToken = generateRefreshToken();
+      const hashedRefreshToken = hashToken(rawRefreshToken);
+      const familyId = generateRandomToken(16);
+      const expiresAt = new Date(
+        Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000
+      );
 
-    await pool.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
+      await client.query(
+        `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
        VALUES ($1, $2, $3, false, $4)`,
-      [user.id, hashedRefreshToken, familyId, expiresAt]
-    );
+        [user.id, hashedRefreshToken, familyId, expiresAt]
+      );
 
-    const accessToken = signAccessToken({
-      id: user.id,
-      role: user.role,
-      token_version: user.token_version || 0,
-    });
-
-    return {
-      user: {
+      const accessToken = signAccessToken({
         id: user.id,
-        name: user.name,
-        email: user.email,
         role: user.role,
-        status: user.status,
-      },
-      accessToken,
-      refreshToken: rawRefreshToken,
-    };
+        token_version: user.token_version || 0,
+      });
+      await client.query('COMMIT');
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          emailVerified: Boolean(user.email_verified_at),
+        },
+        accessToken,
+        refreshToken: rawRefreshToken,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
    * Refresh Token Rotation with Token Family Reuse Detection & Automatic Revocation
    */
-  static async rotateRefreshToken(rawRefreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  static async rotateRefreshToken(
+    rawRefreshToken: string
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const client = await pool.connect();
+    let committed = false;
     try {
       await client.query('BEGIN');
 
       const hashedInputToken = hashToken(rawRefreshToken);
+      // All session mutations lock the user before tokens. This serializes
+      // refresh/login against password changes and account-wide revocation.
+      await client.query(
+        `SELECT u.id FROM users u JOIN refresh_tokens rt ON rt.user_id = u.id
+         WHERE rt.token_hash = $1 FOR UPDATE OF u`,
+        [hashedInputToken]
+      );
 
       const tokenRes = await client.query(
         `SELECT rt.id, rt.user_id, rt.family_id, rt.is_revoked, rt.expires_at,
                 u.role, u.status, u.token_version
          FROM refresh_tokens rt
          JOIN users u ON u.id = rt.user_id
-         WHERE rt.token_hash = $1 FOR UPDATE`,
+         WHERE rt.token_hash = $1 FOR UPDATE OF rt`,
         [hashedInputToken]
       );
 
       const tokenRecord = tokenRes.rows[0];
 
       if (!tokenRecord) {
-        throw new AppError(401, 'Invalid or expired refresh token', 'INVALID_TOKEN');
+        throw new AppError(
+          401,
+          'Invalid or expired refresh token',
+          'INVALID_TOKEN'
+        );
       }
 
       // REUSE DETECTION MECHANISM:
@@ -192,6 +272,7 @@ export class AuthService {
           [tokenRecord.family_id]
         );
         await client.query('COMMIT');
+        committed = true;
         throw new AppError(
           401,
           'Security alert: Refresh token reuse detected. All sessions revoked for safety.',
@@ -203,8 +284,15 @@ export class AuthService {
         throw new AppError(401, 'Refresh token has expired', 'TOKEN_EXPIRED');
       }
 
-      if (tokenRecord.status === 'SUSPENDED' || tokenRecord.status === 'REJECTED') {
-        throw new AppError(403, `Account is ${tokenRecord.status.toLowerCase()}`, 'ACCOUNT_DISABLED');
+      if (
+        tokenRecord.status === 'SUSPENDED' ||
+        tokenRecord.status === 'REJECTED'
+      ) {
+        throw new AppError(
+          403,
+          `Account is ${tokenRecord.status.toLowerCase()}`,
+          'ACCOUNT_DISABLED'
+        );
       }
 
       // Revoke the current token (one-time use)
@@ -216,15 +304,23 @@ export class AuthService {
       // Issue new token in the SAME family
       const newRawRefreshToken = generateRefreshToken();
       const newHashedRefreshToken = hashToken(newRawRefreshToken);
-      const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(
+        Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000
+      );
 
       await client.query(
         `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
          VALUES ($1, $2, $3, false, $4)`,
-        [tokenRecord.user_id, newHashedRefreshToken, tokenRecord.family_id, expiresAt]
+        [
+          tokenRecord.user_id,
+          newHashedRefreshToken,
+          tokenRecord.family_id,
+          expiresAt,
+        ]
       );
 
       await client.query('COMMIT');
+      committed = true;
 
       const accessToken = signAccessToken({
         id: tokenRecord.user_id,
@@ -237,7 +333,7 @@ export class AuthService {
         refreshToken: newRawRefreshToken,
       };
     } catch (err) {
-      await client.query('ROLLBACK');
+      if (!committed) await client.query('ROLLBACK');
       throw err;
     } finally {
       client.release();
@@ -249,62 +345,99 @@ export class AuthService {
    */
   static async revokeSession(rawRefreshToken: string): Promise<void> {
     const hashed = hashToken(rawRefreshToken);
-    await pool.query(
-      `UPDATE refresh_tokens
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `SELECT u.id FROM users u JOIN refresh_tokens rt ON rt.user_id = u.id
+       WHERE rt.token_hash = $1 FOR UPDATE OF u`,
+        [hashed]
+      );
+      await client.query(
+        `UPDATE refresh_tokens
        SET is_revoked = true
        WHERE family_id = (SELECT family_id FROM refresh_tokens WHERE token_hash = $1)`,
-      [hashed]
-    );
+        [hashed]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
    * Revoke ALL active sessions for a user (e.g. on password change or security breach)
    */
   static async revokeAllUserSessions(userId: string): Promise<void> {
-    await pool.query(
-      `UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1`,
-      [userId]
-    );
-    await pool.query(
-      `UPDATE users SET token_version = token_version + 1 WHERE id = $1`,
-      [userId]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE users SET token_version = token_version + 1 WHERE id = $1',
+        [userId]
+      );
+      await client.query(
+        'UPDATE refresh_tokens SET is_revoked = true WHERE user_id = $1',
+        [userId]
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   /**
    * Google OAuth login or registration.
-   * If user with this email or google_id exists, log in and link google_id.
-   * If new user, create account and return active session.
+   * Sign in only by the verified Google subject. Email matches require an
+   * explicit authenticated linking operation; they never confer account access.
    */
-  static async loginWithGoogle(input: GoogleAuthInput): Promise<AuthSessionResponse> {
-    const payload = await GoogleService.verifyIdToken(input.idToken);
+  static async loginWithGoogle(
+    input: GoogleAuthInput
+  ): Promise<AuthSessionResponse> {
+    if (!publicEnrollmentRoleSchema.safeParse(input.role).success) {
+      throw new AppError(
+        400,
+        'Role is not permitted for public enrollment',
+        'INVALID_ENROLLMENT_ROLE'
+      );
+    }
+    const payload = await GoogleService.verifyIdToken(
+      input.idToken,
+      input.nonce
+    );
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
       const existingUserRes = await client.query(
-        `SELECT id, name, email, role, status, token_version, google_id, avatar_url
+        `SELECT id, name, email, role, status, token_version, google_id, avatar_url, email_verified_at
          FROM users
-         WHERE google_id = $1 OR email = $2
+         WHERE google_id = $1
          FOR UPDATE`,
-        [payload.sub, payload.email.toLowerCase()]
+        [payload.sub]
       );
 
       let user = existingUserRes.rows[0];
 
       if (user) {
         if (user.status === 'SUSPENDED' || user.status === 'REJECTED') {
-          throw new AppError(403, `Account is ${user.status.toLowerCase()}`, 'ACCOUNT_DISABLED');
+          throw new AppError(
+            403,
+            `Account is ${user.status.toLowerCase()}`,
+            'ACCOUNT_DISABLED'
+          );
         }
 
         const updates: string[] = ['last_login_at = NOW()'];
         const updateParams: (string | null)[] = [];
         let pIndex = 1;
 
-        if (!user.google_id) {
-          updates.push(`google_id = $${pIndex++}`);
-          updateParams.push(payload.sub);
-        }
         if (!user.avatar_url && payload.picture) {
           updates.push(`avatar_url = $${pIndex++}`);
           updateParams.push(payload.picture);
@@ -316,13 +449,25 @@ export class AuthService {
           updateParams
         );
       } else {
+        const emailMatch = await client.query(
+          'SELECT id FROM users WHERE email = $1',
+          [payload.email.toLowerCase()]
+        );
+        if (emailMatch.rows.length) {
+          throw new AppError(
+            409,
+            'Sign in with your existing account, then connect Google in Profile > Sign-in methods',
+            'GOOGLE_LINK_REQUIRED'
+          );
+        }
         const role: UserRole = input.role || 'USER';
-        const initialStatus: AccountStatus = role === 'USER' ? 'ACTIVE' : 'PENDING_VERIFICATION';
+        const initialStatus: AccountStatus =
+          role === 'USER' ? 'ACTIVE' : 'PENDING_VERIFICATION';
 
         const insertRes = await client.query(
-          `INSERT INTO users (name, email, google_id, auth_provider, avatar_url, role, status, last_login_at)
-           VALUES ($1, $2, $3, 'google', $4, $5, $6, NOW())
-           RETURNING id, name, email, role, status, token_version`,
+          `INSERT INTO users (name, email, google_id, auth_provider, avatar_url, role, status, last_login_at, email_verified_at)
+           VALUES ($1, $2, $3, 'google', $4, $5, $6, NOW(), CASE WHEN $7::boolean THEN NOW() ELSE NULL END)
+           RETURNING id, name, email, role, status, token_version, email_verified_at`,
           [
             payload.name,
             payload.email.toLowerCase(),
@@ -330,9 +475,12 @@ export class AuthService {
             payload.picture || null,
             role,
             initialStatus,
+            payload.emailAuthoritative === true,
           ]
         );
         user = insertRes.rows[0];
+        if (!user.email_verified_at)
+          await EmailChallengeService.enqueue(client, user, 'VERIFY_EMAIL');
 
         if (role === 'COLLECTOR' || role === 'RECYCLING_CENTER') {
           await client.query(
@@ -347,7 +495,9 @@ export class AuthService {
       const rawRefreshToken = generateRefreshToken();
       const hashedRefreshToken = hashToken(rawRefreshToken);
       const familyId = generateRandomToken(16);
-      const expiresAt = new Date(Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const expiresAt = new Date(
+        Date.now() + env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000
+      );
 
       await client.query(
         `INSERT INTO refresh_tokens (user_id, token_hash, family_id, is_revoked, expires_at)
@@ -370,73 +520,68 @@ export class AuthService {
           email: user.email,
           role: user.role,
           status: user.status,
+          emailVerified: Boolean(user.email_verified_at),
         },
         accessToken,
         refreshToken: rawRefreshToken,
       };
     } catch (err) {
       await client.query('ROLLBACK');
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        err.code === '23505'
+      ) {
+        throw new AppError(
+          409,
+          'The Google identity or email is already registered. Sign in again or use account linking.',
+          'GOOGLE_IDENTITY_CONFLICT'
+        );
+      }
       throw err;
     } finally {
       client.release();
     }
   }
 
-  static async requestPasswordReset(email: string): Promise<string | undefined> {
-    const result = await pool.query<{ id: string; email: string }>(
-      'SELECT id, email FROM users WHERE email = $1',
-      [email.toLowerCase()]
-    );
-    const user = result.rows[0];
-    if (!user) return undefined;
-
-    const token = generateRandomToken(32);
-    const tokenHash = hashSha256(token);
-    await pool.query(
-      `UPDATE password_reset_tokens
-       SET used_at = NOW()
-       WHERE user_id = $1 AND used_at IS NULL`,
-      [user.id]
-    );
-    await pool.query(
-      `INSERT INTO password_reset_tokens (token_hash, user_id, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
-      [tokenHash, user.id]
-    );
-
-    try {
-      await sendPasswordResetEmail(user.email, token);
-      return env.NODE_ENV !== 'production' ? token : undefined;
-    } catch {
-      await pool.query(
-        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
-        [tokenHash]
-      );
-      console.error('Password reset email delivery failed');
-      return undefined;
-    }
+  static async requestPasswordReset(email: string): Promise<void> {
+    await EmailChallengeService.requestReset(email);
   }
-
-  static async resetPassword(token: string, newPassword: string): Promise<void> {
+  static async resetPassword(
+    token: string,
+    newPassword: string
+  ): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const tokenResult = await client.query<{ token_hash: string; user_id: string }>(
-        `SELECT token_hash, user_id
-         FROM password_reset_tokens
-         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-         FOR UPDATE`,
+      await client.query(
+        `SELECT u.id FROM users u JOIN password_reset_tokens prt ON prt.user_id = u.id
+         WHERE prt.token_hash = $1 FOR UPDATE OF u`,
+        [hashSha256(token)]
+      );
+      const tokenResult = await client.query<{
+        token_hash: string;
+        user_id: string;
+      }>(
+        `SELECT t.token_hash, t.user_id FROM password_reset_tokens t JOIN users u ON u.id = t.user_id
+         WHERE t.token_hash = $1 AND t.used_at IS NULL AND t.expires_at > NOW() AND u.password_hash IS NOT NULL
+         FOR UPDATE OF t`,
         [hashSha256(token)]
       );
       const resetRecord = tokenResult.rows[0];
       if (!resetRecord) {
-        throw new AppError(400, 'Reset code is invalid or expired', 'INVALID_RESET_TOKEN');
+        throw new AppError(
+          400,
+          'Reset code is invalid or expired',
+          'INVALID_RESET_TOKEN'
+        );
       }
 
       const passwordHash = await hashPassword(newPassword);
       await client.query(
         `UPDATE users
-         SET password_hash = $1, token_version = token_version + 1, updated_at = NOW()
+         SET password_hash = $1, email_verified_at = COALESCE(email_verified_at, NOW()), token_version = token_version + 1, updated_at = NOW()
          WHERE id = $2`,
         [passwordHash, resetRecord.user_id]
       );
@@ -445,8 +590,20 @@ export class AuthService {
         [resetRecord.user_id]
       );
       await client.query(
-        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
-        [resetRecord.token_hash]
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+        [resetRecord.user_id]
+      );
+      await client.query(
+        "UPDATE email_outbox SET status = 'CANCELLED', payload = '{}'::jsonb WHERE user_id = $1 AND status IN ('PENDING','PROCESSING')",
+        [resetRecord.user_id]
+      );
+      await client.query(
+        'UPDATE email_verification_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+        [resetRecord.user_id]
+      );
+      await client.query(
+        'INSERT INTO audit_logs (actor_id, action, target_id, meta) VALUES ($1, $2, $3, $4)',
+        [resetRecord.user_id, 'PASSWORD_RESET', resetRecord.user_id, {}]
       );
       await client.query('COMMIT');
     } catch (error) {

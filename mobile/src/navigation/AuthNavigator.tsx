@@ -8,6 +8,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import SplashScreen from '../screens/auth/SplashScreen';
+import { EnrollmentRole, enrollmentParams } from './enrollment';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -26,10 +27,14 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
  * AuthNavigator — stack shown when auth status = 'signedOut'.
  * RootNavigator will mount this when there is no active session.
  */
-export default function AuthNavigator() {
+export default function AuthNavigator({
+  initialRegistrationRole = null,
+}: {
+  initialRegistrationRole?: EnrollmentRole | null;
+}) {
   return (
     <Stack.Navigator
-      initialRouteName="Login"
+      initialRouteName={initialRegistrationRole ? 'Register' : 'Login'}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
@@ -39,7 +44,13 @@ export default function AuthNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="CollectorLogin" component={CollectorLoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen
+        name="Register"
+        component={RegisterScreen}
+        initialParams={
+          initialRegistrationRole ? enrollmentParams(initialRegistrationRole) : undefined
+        }
+      />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       <Stack.Screen name="OnboardingTour" component={OnboardingScreen} />

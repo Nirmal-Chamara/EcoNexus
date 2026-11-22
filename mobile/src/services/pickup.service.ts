@@ -67,4 +67,21 @@ export const pickupService = {
     });
     return res.data.data;
   },
+
+  /**
+   * POST /pickup/:id/verify-weigh — Collector verifies citizen handshake PIN and records scale weights
+   */
+  async verifyWeighPickup(
+    id: string,
+    payload: {
+      handshakePin: string;
+      actualWeight: number;
+      materials?: Array<{ name: string; weight: number; sub?: string; category?: string }>;
+      scalePhotoUrl?: string;
+      notes?: string;
+    }
+  ): Promise<any> {
+    const res = await apiClient.post<ApiResponse<any>>(`/pickup/${id}/verify-weigh`, payload);
+    return res.data.data;
+  },
 };

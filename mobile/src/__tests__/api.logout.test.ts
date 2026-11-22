@@ -58,3 +58,31 @@ test('401 with no refresh token forces session-expired logout', async () => {
   expect(handler).toHaveBeenCalledWith('SESSION_EXPIRED');
   unsubscribe();
 });
+
+test('invalid Google linking proof does not refresh or end the authenticated account session', async () => {
+  const handler = jest.fn();
+  const unsubscribe = registerForceLogoutHandler(handler);
+  apiClient.defaults.adapter = failure(400, 'INVALID_GOOGLE_TOKEN');
+  try {
+    await expect(apiClient.post('/users/me/google-link')).rejects.toThrow();
+    expect(tokenStorage.getRefreshToken).not.toHaveBeenCalled();
+    expect(tokenStorage.clearTokens).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  } finally { unsubscribe(); }
+});
+
+test.each(['/auth/google', '/auth/forgot-password', '/auth/reset-password'])(
+  'rejected public exchange %s does not refresh or clear an existing session', async (path) => {
+    const handler = jest.fn();
+    const unsubscribe = registerForceLogoutHandler(handler);
+    apiClient.defaults.adapter = failure(401, 'INVALID_TOKEN');
+    try {
+      await expect(apiClient.post(path)).rejects.toThrow();
+      expect(tokenStorage.getRefreshToken).not.toHaveBeenCalled();
+      expect(tokenStorage.clearTokens).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    } finally {
+      unsubscribe();
+    }
+  }
+);
