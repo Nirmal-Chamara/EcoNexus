@@ -1,24 +1,24 @@
 /**
  * testDb.ts
  * Shared helpers for managing a live PostgreSQL connection during integration tests.
- * Tests that require a real DB connection call `checkDb()` first. If the DB is
- * unreachable the test is skipped gracefully via Jest's `test.skip`.
+ * Requires an explicitly selected test database. Missing/unreachable databases
+ * fail the suite instead of silently skipping integration coverage.
  */
 import { Pool } from 'pg';
+import { requireTestDatabaseUrl } from '../../utils/testDatabase';
 
-// Use a dedicated test database URL if provided, otherwise fall back to the
-// default connection so CI can point at the real test schema.
-const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ||
-  process.env.DATABASE_URL ||
-  'postgres://postgres:postgres@localhost:5432/econexus';
+// Never fall back to the application database.
+const TEST_DATABASE_URL = requireTestDatabaseUrl();
 
-export const testPool = new Pool({ connectionString: TEST_DATABASE_URL });
+export const testPool = new Pool({
+  connectionString: TEST_DATABASE_URL,
+  connectionTimeoutMillis: 5000,
+});
 
 let _dbReachable: boolean | null = null;
 
 /**
- * Returns true if the test database is reachable.
+ * Returns true if reachable; otherwise throws so required integration tests fail.
  * Result is cached so we only probe once per process.
  */
 export async function isDbReachable(): Promise<boolean> {
@@ -27,7 +27,7 @@ export async function isDbReachable(): Promise<boolean> {
     await testPool.query('SELECT 1');
     _dbReachable = true;
   } catch {
-    _dbReachable = false;
+    throw new Error('Required integration test database is unreachable');
   }
   return _dbReachable;
 }
@@ -38,18 +38,15 @@ export async function isDbReachable(): Promise<boolean> {
  */
 export async function cleanupUsers(emails: string[]): Promise<void> {
   if (emails.length === 0) return;
-  try {
-    // Refresh tokens cascade on user deletion if FK with CASCADE is set;
-    // otherwise delete them explicitly first.
-    await testPool.query(
-      `DELETE FROM refresh_tokens
-       WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`,
-      [emails]
-    );
-    await testPool.query('DELETE FROM users WHERE email = ANY($1::text[])', [emails]);
-  } catch {
-    // Ignore cleanup errors – they should not fail the test run.
-  }
+  // Delete refresh tokens explicitly before their owning users.
+  await testPool.query(
+    `DELETE FROM refresh_tokens
+     WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`,
+    [emails]
+  );
+  await testPool.query('DELETE FROM users WHERE email = ANY($1::text[])', [
+    emails,
+  ]);
 }
 
 /**

@@ -1,10 +1,27 @@
 import { z } from 'zod';
+import { phoneSchema } from './contact.validator';
+
+export const linkGoogleSchema = z.object({
+  body: z
+    .object({
+      idToken: z.string().min(1).max(16384),
+      currentPassword: z.string().min(1).max(256),
+      nonce: z.string().min(16).max(128),
+    })
+    .strict(),
+});
 
 export const updateProfileSchema = z.object({
-  body: z.object({
-    name: z.string().min(2, 'Name must be at least 2 characters').max(100).optional(),
-    phone: z.string().optional(),
-  })
+  body: z
+    .object({
+      name: z
+        .string()
+        .trim()
+        .min(2, 'Name must be at least 2 characters')
+        .max(100)
+        .optional(),
+      phone: phoneSchema.nullable().optional(),
+    })
     .strict()
     .refine((data) => Object.keys(data).length > 0, {
       message: 'At least one field (name or phone) must be provided for update',
@@ -12,13 +29,15 @@ export const updateProfileSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-  body: z.object({
-    oldPassword: z.string().min(1, 'Old password is required'),
-    newPassword: z
-      .string()
-      .min(8, 'Password must be at least 8 characters')
-      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-      .regex(/[0-9]/, 'Password must contain at least one number'),
-  }).strict(),
+  body: z
+    .object({
+      oldPassword: z.string().min(1, 'Old password is required'),
+      newPassword: z
+        .string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number'),
+    })
+    .strict(),
 });

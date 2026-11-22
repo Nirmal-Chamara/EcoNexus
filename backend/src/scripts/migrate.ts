@@ -1,28 +1,20 @@
-import fs from 'fs';
 import path from 'path';
 import { pool } from '../config/db';
+import { migrate } from '../services/migration.service';
 
 async function runMigrations() {
-  const client = await pool.connect();
   try {
-    console.log('[Migration] Starting database migrations...');
-    const migrationsDir = path.resolve(__dirname, '../../migrations');
-    const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
-
-    for (const file of files) {
-      console.log(`[Migration] Running ${file}...`);
-      const filePath = path.join(migrationsDir, file);
-      const sql = fs.readFileSync(filePath, 'utf-8');
-      await client.query(sql);
-      console.log(`[Migration] Completed ${file}`);
+    const client = await pool.connect();
+    try {
+      const applied = await migrate(client, path.resolve(__dirname, '../../migrations'));
+      console.log(`[Migration] Applied ${applied.length} new migration(s).`, applied);
+    } finally {
+      client.release();
     }
-
-    console.log('[Migration] All migrations completed successfully.');
   } catch (error) {
     console.error('[Migration Error]:', error);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
-    client.release();
     await pool.end();
   }
 }

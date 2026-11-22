@@ -3,7 +3,7 @@ import type { User } from '../types/user';
 
 export interface UpdateProfileInput {
   name?: string;
-  phone?: string;
+  phone?: string | null;
 }
 
 export interface ChangePasswordInput {
@@ -17,6 +17,14 @@ export interface UserProfileResponse {
 }
 
 export const userService = {
+  async getSignInMethods(): Promise<{ hasPassword: boolean; googleLinked: boolean }> {
+    const response = await apiClient.get<{ data: { hasPassword: boolean; googleLinked: boolean } }>('/users/me/sign-in-methods');
+    return response.data.data;
+  },
+  async linkGoogle(input: { idToken: string; currentPassword: string; nonce: string }): Promise<{ googleLinked: true; signInRequired: true }> {
+    const response = await apiClient.post<{ data: { googleLinked: true; signInRequired: true } }>('/users/me/google-link', input);
+    return response.data.data;
+  },
   /**
    * GET /api/users/me — Fetch full profile of the authenticated user.
    */

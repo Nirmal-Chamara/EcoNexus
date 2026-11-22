@@ -1,12 +1,12 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import DashboardScreen from '../screens/collector/DashboardScreen';
 import { RequestsStackNavigator } from './CollectorStackNavigator';
 import CollectionHistoryScreen from '../screens/collector/CollectionHistoryScreen';
 import ServiceAreaScreen from '../screens/collector/ServiceAreaScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
-import { roleTabScreenOptions, TabIcon } from './tabBar';
-import { colors } from '../theme/colors';
+import { TabIcon } from './tabBar';
 
 export type CollectorTabParamList = {
   Dashboard: undefined;
@@ -23,7 +23,14 @@ export default function CollectorNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="Dashboard"
-      screenOptions={roleTabScreenOptions(colors.roleCollector)}
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: '#059669',
+        tabBarInactiveTintColor: '#64748B',
+        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarHideOnKeyboard: true,
+      }}
     >
       <Tab.Screen
         name="Dashboard"
@@ -78,3 +85,24 @@ export default function CollectorNavigator() {
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopColor: '#E5E7EB',
+    borderTopWidth: 1,
+    height: 68,
+    paddingTop: 6,
+    paddingBottom: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+});

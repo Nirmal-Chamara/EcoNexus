@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import routes from './routes';
 import { env } from './config/env';
+import { isReleaseEnvironment } from './config/environment';
 import { apiLimiter } from './middleware/rateLimiter.middleware';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -25,7 +26,7 @@ app.use(
     origin: (origin, callback) => {
       // Allow mobile apps, curl, Postman (requests with no origin header)
       if (!origin) return callback(null, true);
-      if (env.NODE_ENV !== 'production' || allowedOrigins.includes(origin)) {
+      if (!isReleaseEnvironment(env.NODE_ENV) || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       return callback(new Error(`Origin ${origin} not allowed by CORS`));

@@ -1,48 +1,53 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../../theme/colors';
 
 interface StatusBadgeProps {
   status: string;
   size?: 'small' | 'medium';
 }
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string; border: string }> = {
   PENDING: {
     label: 'Pending',
-    bg: '#1C1607',
-    text: colors.warning,
-    dot: colors.warning,
+    bg: '#FEF3C7',
+    text: '#B45309',
+    dot: '#F59E0B',
+    border: '#FDE68A',
   },
   ACCEPTED: {
     label: 'Accepted',
-    bg: '#0A1E2C',
-    text: colors.info,
-    dot: colors.info,
+    bg: '#E0F2FE',
+    text: '#0369A1',
+    dot: '#0284C7',
+    border: '#BAE6FD',
   },
   IN_TRANSIT: {
     label: 'In Transit',
-    bg: '#1F1A05',
-    text: '#FBBF24',
-    dot: '#FBBF24',
+    bg: '#FEF9C3',
+    text: '#A16207',
+    dot: '#EAB308',
+    border: '#FEF08A',
   },
   EN_ROUTE: {
     label: 'En Route',
-    bg: '#1F1A05',
-    text: '#FBBF24',
-    dot: '#FBBF24',
+    bg: '#FEF9C3',
+    text: '#A16207',
+    dot: '#EAB308',
+    border: '#FEF08A',
   },
   COMPLETED: {
     label: 'Completed',
-    bg: colors.successSurface,
-    text: colors.success,
-    dot: colors.success,
+    bg: '#ECFDF5',
+    text: '#065F46',
+    dot: '#059669',
+    border: '#A7F3D0',
   },
   CANCELLED: {
     label: 'Cancelled',
-    bg: colors.errorSurface,
-    text: colors.error,
-    dot: colors.error,
+    bg: '#FEE2E2',
+    text: '#B91C1C',
+    dot: '#EF4444',
+    border: '#FECACA',
   },
 };
 
@@ -50,15 +55,22 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'medium
   const normalized = status ? status.toUpperCase().replace(/\s+/g, '_') : 'PENDING';
   const config = STATUS_CONFIG[normalized] || {
     label: status,
-    bg: colors.surfaceAlt,
-    text: colors.textSecondary,
-    dot: colors.textMuted,
+    bg: '#F1F5F9',
+    text: '#475569',
+    dot: '#94A3B8',
+    border: '#E2E8F0',
   };
 
   const isSmall = size === 'small';
 
   return (
-    <View style={[styles.badge, { backgroundColor: config.bg }, isSmall && styles.badgeSmall]}>
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: config.bg, borderColor: config.border },
+        isSmall && styles.badgeSmall,
+      ]}
+    >
       <View style={[styles.dot, { backgroundColor: config.dot }]} />
       <Text style={[styles.text, { color: config.text }, isSmall && styles.textSmall]}>
         {config.label}
@@ -76,7 +88,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   badgeSmall: {
     paddingHorizontal: 8,
@@ -91,7 +102,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
   textSmall: {

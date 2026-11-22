@@ -147,15 +147,10 @@ describe('registerSchema', () => {
   });
 
   it('rejects the ADMIN role (public endpoint must not allow self-registration as ADMIN)', () => {
-    // The Zod enum allows ADMIN values — enforcement is done in the service/controller layer.
-    // This test documents the schema's current behaviour so any future restriction is detected.
     const result = registerSchema.safeParse({
       body: { ...validUser.body, role: 'ADMIN' },
     });
-    // Documenting: schema currently ACCEPTS ADMIN at validation layer.
-    // The service layer must reject it.
-    // If the schema is later hardened to reject ADMIN, update this test.
-    expect(typeof result.success).toBe('boolean');
+    expect(result.success).toBe(false);
   });
 
   it('accepts an optional phone number', () => {
@@ -301,7 +296,7 @@ describe('updateUserStatusSchema (admin)', () => {
     expect(
       passes(updateUserStatusSchema, {
         params: { id: validId },
-        body: { status: 'ACTIVE' },
+        body: { status: 'ACTIVE', reason: 'Reviewed account' },
       })
     ).toBe(true);
   });
@@ -310,7 +305,7 @@ describe('updateUserStatusSchema (admin)', () => {
     expect(
       passes(updateUserStatusSchema, {
         params: { id: 'not-a-uuid' },
-        body: { status: 'ACTIVE' },
+        body: { status: 'ACTIVE', reason: 'Reviewed account' },
       })
     ).toBe(false);
   });
@@ -324,13 +319,13 @@ describe('updateUserStatusSchema (admin)', () => {
     ).toBe(false);
   });
 
-  it('accepts all four valid status values', () => {
-    const validStatuses = ['ACTIVE', 'PENDING_VERIFICATION', 'REJECTED', 'SUSPENDED'];
+  it('accepts managed status values with reasons', () => {
+    const validStatuses = ['ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED'];
     for (const status of validStatuses) {
       expect(
         passes(updateUserStatusSchema, {
           params: { id: validId },
-          body: { status, ...(status === 'SUSPENDED' ? { reason: 'Policy violation' } : {}) },
+          body: { status, reason: 'Reviewed account' },
         })
       ).toBe(true);
     }
@@ -343,6 +338,11 @@ describe('updateUserStatusSchema (admin)', () => {
         body: { status: 'SUSPENDED' },
       })
     ).toBe(false);
+  });
+
+  it('rejects generic rejection and requires reasons on restoration', () => {
+    expect(passes(updateUserStatusSchema, { params: { id: validId }, body: { status: 'REJECTED', reason: 'Review elsewhere' } })).toBe(false);
+    expect(passes(updateUserStatusSchema, { params: { id: validId }, body: { status: 'ACTIVE' } })).toBe(false);
   });
 
   it('rejects extra body fields (strict mode)', () => {

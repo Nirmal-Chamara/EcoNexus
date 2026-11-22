@@ -1,128 +1,112 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env';
-import { logger } from '../utils/logger';
+import { AppError } from '../utils/AppError';
+import type { MailPayload } from './mail-payload.service';
 
-export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
-  const hasResend = Boolean(env.RESEND_API_KEY);
-  const hasSmtp = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
-
-  if (!hasResend && !hasSmtp) {
-    if (env.NODE_ENV !== 'production') {
-      logger.info(
-        `[DEV MODE] Password reset email not sent via external provider (credentials not configured).\n` +
-        `Reset code for ${email}: ${token}\n` +
-        `Deep Link: econexus://reset-password?token=${token}`
-      );
-      return;
-    }
-    throw new Error('Email service configuration is incomplete. Configure RESEND_API_KEY or SMTP credentials.');
+export class MailDeliveryError extends Error {
+  constructor(
+    public code: string,
+    public retryable: boolean
+  ) {
+    super(code);
   }
-
-  const fromEmail = env.EMAIL_FROM || 'EcoNexus <onboarding@resend.dev>';
-  const deepLink = `econexus://reset-password?token=${encodeURIComponent(token)}`;
-
-  const textBody =
-    `Hello,\n\n` +
-    `You requested a password reset for your EcoNexus account.\n\n` +
-    `Your one-time reset code is: ${token}\n\n` +
-    `Or open this link directly in the app: ${deepLink}\n\n` +
-    `This code will expire in 15 minutes. If you did not request this, you can safely ignore this email.\n\n` +
-    `— The EcoNexus Team`;
-
-  const htmlBody = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Your EcoNexus Password</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0A0F0D; color: #FFFFFF; margin: 0; padding: 20px; }
-    .container { max-width: 520px; margin: 0 auto; background-color: #121A16; border-radius: 12px; padding: 32px; border: 1px solid #1E2D26; }
-    .logo { color: #22C55E; font-size: 24px; font-weight: bold; margin-bottom: 24px; display: inline-block; }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #FFFFFF; }
-    p { font-size: 15px; line-height: 24px; color: #A1A1AA; margin-bottom: 20px; }
-    .code-box { background-color: #0A0F0D; border: 1px dashed #22C55E; border-radius: 8px; padding: 16px; text-align: center; margin: 24px 0; }
-    .code { font-family: monospace; font-size: 20px; font-weight: bold; letter-spacing: 2px; color: #22C55E; word-break: break-all; }
-    .btn { display: inline-block; background-color: #22C55E; color: #000000; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 6px; margin: 12px 0 24px 0; }
-    .footer { font-size: 13px; color: #71717A; margin-top: 32px; border-top: 1px solid #1E2D26; padding-top: 16px; line-height: 20px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="logo">🌱 EcoNexus</div>
-    <h1>Password Reset Request</h1>
-    <p>You requested to reset the password for your EcoNexus account. Use the one-time code below in the app:</p>
-    <div class="code-box">
-      <div class="code">${token}</div>
-    </div>
-    <div style="text-align: center;">
-      <a href="${deepLink}" class="btn">Open in EcoNexus App</a>
-    </div>
-    <p style="font-size: 13px; color: #EF4444;">⏰ This reset code expires in 15 minutes.</p>
-    <div class="footer">
-      If you did not request a password reset, please ignore this email or contact support if you have security concerns. Your account remains secure.
-    </div>
-  </div>
-</body>
-</html>`;
-
-  // Priority 1: Resend HTTP REST API
-  if (hasResend) {
+}
+export function configuredMailProvider(): 'resend' | 'smtp' {
+  if (!env.EMAIL_FROM || !/^[a-fA-F0-9]{64}$/.test(env.EMAIL_OUTBOX_KEY))
+    throw new AppError(
+      503,
+      'Email delivery is not configured',
+      'EMAIL_NOT_CONFIGURED'
+    );
+  if (env.RESEND_API_KEY) return 'resend';
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD) return 'smtp';
+  throw new AppError(
+    503,
+    'Email delivery is not configured',
+    'EMAIL_NOT_CONFIGURED'
+  );
+}
+export function messageFor(
+  payload: Pick<MailPayload, 'purpose' | 'token' | 'link'>
+) {
+  const action =
+    payload.purpose === 'VERIFY_EMAIL'
+      ? 'Verify your EcoNexus email'
+      : 'Reset your EcoNexus password';
+  return {
+    subject: action,
+    text: `${action}\n\nUse this one-time code in EcoNexus:\n${payload.token}\n\nOr open:\n${payload.link}\n\nExpires in 15 minutes. If you did not request this, ignore this email.`,
+  };
+}
+/** Provider acceptance is not proof of inbox delivery. No console-send fallback. */
+export async function sendTransactionalEmail(
+  provider: 'resend' | 'smtp',
+  id: string,
+  email: string,
+  subject: string,
+  text: string,
+  from = env.EMAIL_FROM
+): Promise<string> {
+  if (provider === 'resend') {
+    if (!env.RESEND_API_KEY || !env.EMAIL_FROM)
+      throw new MailDeliveryError('EMAIL_NOT_CONFIGURED', false);
+    let response: Response;
     try {
-      const response = await fetch('https://api.resend.com/emails', {
+      response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: AbortSignal.timeout(10000),
         headers: {
-          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
           'Content-Type': 'application/json',
+          'Idempotency-Key': `econexus/${id}`,
         },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: [email],
-          subject: 'Reset your EcoNexus password',
-          text: textBody,
-          html: htmlBody,
-        }),
+        body: JSON.stringify({ from, to: [email], subject, text }),
       });
-
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({ message: response.statusText }))) as any;
-        const errMsg = errorData?.message || errorData?.name || response.statusText;
-        logger.error(`Resend API error (${response.status}): ${errMsg}`);
-        if (!hasSmtp) {
-          throw new Error(`Resend email delivery failed (${response.status}): ${errMsg}`);
-        }
-      } else {
-        logger.info(`Password reset email successfully sent to ${email} via Resend API.`);
-        return;
-      }
-    } catch (err: any) {
-      if (!hasSmtp) {
-        throw err;
-      }
-      logger.warn(`Resend API request failed, attempting SMTP fallback: ${err.message}`);
+    } catch {
+      throw new MailDeliveryError('EMAIL_PROVIDER_UNAVAILABLE', true);
     }
+    if (!response.ok)
+      throw new MailDeliveryError(
+        `EMAIL_PROVIDER_HTTP_${response.status}`,
+        response.status === 429 ||
+          response.status >= 500 ||
+          response.status === 409
+      );
+    const body = (await response.json().catch(() => null)) as {
+      id?: unknown;
+    } | null;
+    if (typeof body?.id !== 'string')
+      throw new MailDeliveryError('EMAIL_PROVIDER_INVALID_RESPONSE', true);
+    return body.id;
   }
-
-  // Priority 2: Nodemailer SMTP
-  if (hasSmtp) {
-    const transporter = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: env.SMTP_PORT,
-      secure: env.SMTP_PORT === 465,
-      auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: fromEmail,
+  if (!env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD || !env.EMAIL_FROM)
+    throw new MailDeliveryError('EMAIL_NOT_CONFIGURED', false);
+  const transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465,
+    requireTLS: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
+  });
+  try {
+    const result = await transporter.sendMail({
+      from,
       to: email,
-      subject: 'Reset your EcoNexus password',
-      text: textBody,
-      html: htmlBody,
+      subject,
+      text,
+      messageId: `<${id}@econexus-mail>`,
+      headers: { 'Resend-Idempotency-Key': `econexus/${id}` },
     });
-    logger.info(`Password reset email successfully sent to ${email} via SMTP.`);
+    if (!result.accepted?.length || result.rejected?.length)
+      throw new MailDeliveryError('EMAIL_RECIPIENT_REJECTED', false);
+    return result.messageId;
+  } catch (error) {
+    if (error instanceof MailDeliveryError) throw error;
+    throw new MailDeliveryError('EMAIL_SMTP_UNAVAILABLE', true);
+  } finally {
+    transporter.close();
   }
 }

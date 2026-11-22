@@ -12,11 +12,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ProfileScreen from '../screens/shared/ProfileScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import ChangePasswordScreen from '../screens/shared/ChangePasswordScreen';
+import SignInMethodsScreen from '../screens/shared/SignInMethodsScreen';
 
 export type ProfileStackParamList = {
   Profile: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
+  SignInMethods: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -34,6 +36,7 @@ export default function ProfileStackNavigator() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="SignInMethods" component={SignInMethodsScreen} options={{ headerShown: true, title: 'Sign-in methods' }} />
     </Stack.Navigator>
   );
 }

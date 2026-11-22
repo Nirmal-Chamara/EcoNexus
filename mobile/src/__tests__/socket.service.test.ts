@@ -2,6 +2,9 @@ import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { socketService } from '../services/socket.service';
 import { tokenStorage } from '../services/tokenStorage';
 import { io } from 'socket.io-client';
+import { apiClient } from '../services/api';
+
+jest.mock('../services/api', () => ({ apiClient: { get: jest.fn() } }));
 
 jest.mock('../services/tokenStorage', () => ({
   tokenStorage: {
@@ -27,6 +30,7 @@ describe('socketService', () => {
       off: jest.fn(),
       emit: jest.fn(),
       disconnect: jest.fn(),
+      connect: jest.fn(),
     };
 
     (io as jest.Mock).mockReturnValue(mockSocket);
@@ -40,10 +44,91 @@ describe('socketService', () => {
       expect.any(String),
       expect.objectContaining({
         transports: ['websocket', 'polling'],
-        auth: { token: 'test-jwt-token' },
+        auth: expect.any(Function),
       })
     );
     expect(socket).toBe(mockSocket);
+    const auth = (
+      (io as jest.Mock).mock.calls[0][1] as {
+        auth: (callback: (credentials: unknown) => void) => void;
+      }
+    ).auth;
+    const callback = jest.fn();
+    auth(callback);
+    await Promise.resolve();
+    expect(callback).toHaveBeenCalledWith({ token: 'test-jwt-token' });
+  });
+
+  it('re-reads rotated access tokens on a subsequent handshake', async () => {
+    await socketService.connect();
+    const auth = (
+      (io as jest.Mock).mock.calls[0][1] as {
+        auth: (callback: (credentials: unknown) => void) => void;
+      }
+    ).auth;
+    (tokenStorage.getAccessToken as jest.Mock).mockResolvedValue('rotated-token' as never);
+    const callback = jest.fn();
+    auth(callback);
+    await Promise.resolve();
+    expect(callback).toHaveBeenCalledWith({ token: 'rotated-token' });
+  });
+
+  it('recovers an expired token through the shared API session once', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({} as never);
+    await socketService.connect();
+    const handler = mockSocket.on.mock.calls.find(
+      ([event]: [string]) => event === 'connect_error'
+    )[1];
+    handler({ message: 'expired', data: { code: 'TOKEN_EXPIRED' } });
+    handler({ message: 'expired', data: { code: 'TOKEN_EXPIRED' } });
+    await Promise.resolve();
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+    expect(apiClient.get).toHaveBeenCalledWith('/users/me');
+    expect(mockSocket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry suspended or revoked credentials through socket refresh', async () => {
+    await socketService.connect();
+    const handler = mockSocket.on.mock.calls.find(
+      ([event]: [string]) => event === 'connect_error'
+    )[1];
+    handler({ message: 'revoked', data: { code: 'TOKEN_REVOKED' } });
+    handler({ message: 'disabled', data: { code: 'ACCOUNT_DISABLED' } });
+    expect(apiClient.get).not.toHaveBeenCalled();
+    expect(mockSocket.connect).not.toHaveBeenCalled();
+  });
+
+  it('recovers expiry reported during an existing subscription', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({} as never);
+    await socketService.connect();
+    const handler = mockSocket.on.mock.calls.find(
+      ([event]: [string]) => event === 'session_error'
+    )[1];
+    handler({ code: 'TOKEN_EXPIRED' });
+    await Promise.resolve();
+    expect(apiClient.get).toHaveBeenCalledWith('/users/me');
+    expect(mockSocket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores subscriptions on reconnect and clears them on explicit disconnect', async () => {
+    await socketService.connect();
+    socketService.joinPickup('retained');
+    socketService.joinPickup('removed');
+    socketService.leavePickup('removed');
+    socketService.joinCollector('collector');
+    socketService.joinAvailablePool();
+    mockSocket.emit.mockClear();
+    const reconnect = mockSocket.on.mock.calls.find(([event]: [string]) => event === 'connect')[1];
+    reconnect();
+    expect(mockSocket.emit).toHaveBeenCalledWith('join_pickup', 'retained');
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('join_pickup', 'removed');
+    expect(mockSocket.emit).toHaveBeenCalledWith('join_collector', 'collector');
+    expect(mockSocket.emit).toHaveBeenCalledWith('collector_online');
+    socketService.disconnect();
+    await socketService.connect();
+    mockSocket.emit.mockClear();
+    reconnect();
+    expect(mockSocket.emit).not.toHaveBeenCalled();
   });
 
   it('emits join_pickup and leave_pickup events to the server', async () => {
@@ -88,4 +173,3 @@ describe('socketService', () => {
     expect(mockSocket.off).toHaveBeenCalledWith('collector_location_updated', handler);
   });
 });
-

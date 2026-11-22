@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, DevSettings, Modal } from 'react-native';
+import { StyleSheet, View, Platform, DevSettings, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
@@ -9,6 +9,9 @@ import NetworkStatusBanner from './src/components/common/NetworkStatusBanner';
 import ThemePreviewScreen from './src/screens/dev/ThemePreviewScreen';
 import ComponentGalleryScreen from './src/screens/dev/ComponentGalleryScreen';
 import { tokenStorage } from './src/services/tokenStorage';
+
+const isWeb = Platform.OS === 'web';
+const appBackgroundColor = '#F8FAFC';
 
 function AppContent() {
   useEffect(() => {
@@ -34,13 +37,17 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider style={styles.root}>
+    <SafeAreaProvider style={styles.safeArea}>
       <AuthProvider>
-        <NetworkStatusBanner />
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
-        <StatusBar style="auto" />
+        <View style={styles.canvas}>
+          <View style={styles.phoneFrame}>
+            <NetworkStatusBanner />
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+            <StatusBar style="auto" />
+          </View>
+        </View>
       </AuthProvider>
       {__DEV__ && (
         <Modal visible={showComponents} onRequestClose={() => setShowComponents(false)}>
@@ -63,9 +70,35 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: {
+  safeArea: {
+    flex: 1,
+    backgroundColor: isWeb ? '#0F172A' : appBackgroundColor,
+  },
+  canvas: {
     flex: 1,
     width: '100%',
     height: '100%',
+    backgroundColor: isWeb ? '#0F172A' : appBackgroundColor,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phoneFrame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: isWeb ? 430 : undefined,
+    height: '100%',
+    backgroundColor: appBackgroundColor,
+    ...(isWeb
+      ? {
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: '#1E293B',
+          overflow: 'hidden',
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.35,
+          shadowRadius: 20,
+        }
+      : {}),
   },
 });

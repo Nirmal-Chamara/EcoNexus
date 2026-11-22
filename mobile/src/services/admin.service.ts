@@ -185,8 +185,8 @@ export const adminService = {
    */
   async updateUserStatus(
     userId: string,
-    status: AccountStatus,
-    reason?: string
+    status: Exclude<AccountStatus, 'REJECTED'>,
+    reason: string
   ): Promise<{ message: string; data: UserSummary }> {
     const response = await apiClient.patch<{ message: string; data: UserSummary }>(
       `/admin/users/${userId}/status`,

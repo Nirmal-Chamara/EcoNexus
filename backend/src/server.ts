@@ -4,6 +4,8 @@ import app from './app';
 import { env } from './config/env';
 
 import { registerPickupSocket } from './sockets';
+import { startEmailWorker } from './services/email-worker.service';
+import { pool } from './config/database';
 
 const server = http.createServer(app);
 
@@ -20,6 +22,19 @@ io.on('connection', (socket) => {
   });
 });
 
+let stopEmailWorker: (() => Promise<void>) | undefined;
 server.listen(env.PORT, () => {
-  console.log(`[EcoNexus Backend] Server listening on port ${env.PORT} in ${env.NODE_ENV} mode`);
+  console.log(
+    `[EcoNexus Backend] Server listening on port ${env.PORT} in ${env.NODE_ENV} mode`
+  );
+  stopEmailWorker = startEmailWorker();
 });
+const shutdown = () => {
+  void Promise.resolve(stopEmailWorker?.()).then(() => {
+    io.close(() => {
+      void pool.end();
+    });
+  });
+};
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
