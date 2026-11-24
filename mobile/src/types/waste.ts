@@ -1,31 +1,63 @@
 export interface WasteCategory {
   id: number;
   name: string;
-  description: string | null;
-  icon: string | null;
+  description?: string | null;
+  icon?: string | null;
 }
 
+export interface ListingImage {
+  url: string;
+  label?: string | null;
+}
+
+export type ListingStatus =
+  | 'draft'
+  | 'active'
+  | 'requested'
+  | 'scheduled'
+  | 'collected'
+  | 'cancelled';
+
+export type ContainerSize = 'small' | 'medium' | 'bulk';
+export type Pathway = 'recycle' | 'sell' | 'donate' | 'reuse';
+
+// Shape returned by the API
 export interface WasteListing {
   id: string;
+  listing_code?: string;
   title: string;
-  description: string | null;
-  quantity: string; // Postgres returns decimals as strings; use Number() for math
-  unit: "kg" | "items";
-  condition: "clean" | "dirty" | "damaged" | "reusable";
-  status: "active" | "requested" | "collected" | "cancelled";
-  created_at: string;
-  updated_at: string;
+  description?: string | null;
   category_id: number;
-  category_name: string;
-  images: string[];
+  category_name?: string;
+  quantity: number | string;
+  unit: 'kg' | 'items';
+  container_size?: ContainerSize;
+  is_cleaned?: boolean;
+  is_sorted?: boolean;
+  pathway?: Pathway;
+  status: ListingStatus;
+  images?: ListingImage[];
+  created_at?: string;
 }
 
-export interface CreateListingInput {
+// What we send when creating or editing a listing
+export interface ListingInput {
   categoryId: number;
-  title: string;
+  title?: string;
   description?: string;
   quantity: number;
-  unit: "kg" | "items";
-  condition: "clean" | "dirty" | "damaged" | "reusable";
-  imageUrls: string[];
+  unit: 'kg' | 'items';
+  condition?: string;
+  containerSize?: ContainerSize;
+  isCleaned?: boolean;
+  isSorted?: boolean;
+  pathway?: Pathway;
+  status?: 'draft' | 'active';
+  photos?: ListingImage[];
+  imageUrls?: string[];
+}
+
+export interface WasteSummary {
+  counts: { active: number; scheduled: number; history: number; drafts: number };
+  recycled_kg: number;
 }

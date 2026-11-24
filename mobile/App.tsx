@@ -11,6 +11,7 @@ import ComponentGalleryScreen from './src/screens/dev/ComponentGalleryScreen';
 import { tokenStorage } from './src/services/tokenStorage';
 
 const isWeb = Platform.OS === 'web';
+const appBackgroundColor = '#F8FAFC';
 
 function AppContent() {
   useEffect(() => {
@@ -71,13 +72,13 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: isWeb ? '#0F172A' : '#F8FAFC',
+    backgroundColor: isWeb ? '#0F172A' : appBackgroundColor,
   },
   canvas: {
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: isWeb ? '#0F172A' : '#F8FAFC',
+    backgroundColor: isWeb ? '#0F172A' : appBackgroundColor,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: isWeb ? 430 : undefined,
     height: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: appBackgroundColor,
     ...(isWeb
       ? {
           borderLeftWidth: 1,

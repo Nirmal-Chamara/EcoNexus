@@ -75,7 +75,12 @@ const LISTING_SELECT = `
          l.condition, l.container_size, l.is_cleaned, l.is_sorted, l.pathway,
          l.status, l.created_at, l.updated_at,
          c.id AS category_id, c.name AS category_name,
-         COALESCE(
+          (SELECT it.request_id
+            FROM pickup_request_items it
+            JOIN pickup_requests pr ON pr.id = it.request_id
+            WHERE it.listing_id = l.id AND pr.status <> 'cancelled'
+            ORDER BY pr.created_at DESC LIMIT 1) AS request_id,
+          COALESCE(
            json_agg(json_build_object('url', i.image_url, 'label', i.label) ORDER BY i.id)
              FILTER (WHERE i.id IS NOT NULL),
            '[]'

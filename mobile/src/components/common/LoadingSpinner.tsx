@@ -1,11 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Easing,
-} from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
@@ -29,7 +23,7 @@ export function LoadingSpinner({ message = 'Loading...' }: { message?: string })
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,    duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
       ])
     ).start();
   }, []);
@@ -41,9 +35,7 @@ export function LoadingSpinner({ message = 'Loading...' }: { message?: string })
 
   return (
     <View style={styles.container}>
-      <Animated.Text style={[styles.logo, { transform: [{ scale: pulseAnim }] }]}>
-        🌱
-      </Animated.Text>
+      <Animated.Text style={[styles.logo, { transform: [{ scale: pulseAnim }] }]}>🌱</Animated.Text>
       <Animated.View style={[styles.ring, { transform: [{ rotate }] }]} />
       <Text style={styles.message}>{message}</Text>
     </View>

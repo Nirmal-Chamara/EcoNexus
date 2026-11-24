@@ -11,6 +11,11 @@ export default function RewardsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A0F0D' },
-  text:      { color: '#A7F3D0', fontSize: 16 },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0A0F0D',
+  },
+  text: { color: '#A7F3D0', fontSize: 16 },
 });

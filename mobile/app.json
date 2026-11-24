@@ -10,7 +10,9 @@
     "splash": {
       "backgroundColor": "#0A0F0D"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.econexus.app"
@@ -39,7 +41,8 @@
         {
           "color": "#22C55E"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -130,14 +130,16 @@ export default function MyListingsScreen({ navigation, route }: { navigation?: a
       const listingItems: UnifiedActivityItem[] = (listings || []).map((l) => ({
         id: l.id,
         type: 'listing',
-        title: l.title || `${l.category_name} Listing`,
-        wasteType: l.category_name,
+        title: l.title || `${l.category_name || 'Recyclable'} Listing`,
+        wasteType: l.category_name || 'Recyclable',
         status: l.status,
         weight: `${l.quantity} ${l.unit}`,
-        date: new Date(l.created_at).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-        }),
+        date: l.created_at
+          ? new Date(l.created_at).toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric',
+            })
+          : 'Recent',
         points: Math.round(Number(l.quantity) * 20),
       }));
 
@@ -370,12 +372,20 @@ export default function MyListingsScreen({ navigation, route }: { navigation?: a
       {/* ── 4. Floating Action Button ─────────────────────────────── */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => navigation?.navigate('ListWaste')}
+        onPress={() => {
+          if (navigation?.navigate) {
+            try {
+              navigation.navigate('ListWaste');
+            } catch {
+              navigation.navigate('AddListing');
+            }
+          }
+        }}
         accessibilityRole="button"
         accessibilityLabel="Request Waste Pickup"
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.fabText}>Request Pickup</Text>
+        <Text style={styles.fabText}>+ New Waste</Text>
       </TouchableOpacity>
     </View>
   );

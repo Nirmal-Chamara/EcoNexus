@@ -1,4 +1,13 @@
 import type { TextStyle } from 'react-native';
+// Font families (Poppins for headings/numbers/buttons, Inter for everything else)
+export const fontFamily = {
+  heading: 'Poppins_700Bold',
+  headingSemi: 'Poppins_600SemiBold',
+  headingMedium: 'Poppins_500Medium',
+  body: 'Inter_400Regular',
+  bodyMedium: 'Inter_500Medium',
+  bodySemi: 'Inter_600SemiBold',
+};
 
 // Base font scale
 export const fontSize = {

@@ -43,7 +43,11 @@ const CATEGORIES: CategoryOption[] = [
 
 const QUICK_WEIGHTS = [2, 5, 10, 20];
 
-export default function CreateWasteListingScreen() {
+interface CreateWasteListingScreenProps {
+  onDone?: (listingId: string, goNext: boolean) => void;
+}
+
+export default function CreateWasteListingScreen({ onDone }: CreateWasteListingScreenProps = {}) {
   const navigation = useNavigation<any>();
   const { location, address: detectedAddress, loading: locLoading, getCurrentLocation } = useLocation();
 
@@ -190,7 +194,11 @@ export default function CreateWasteListingScreen() {
     setSelectedItems([{ label: 'Plastic', emoji: '🧴', ptsPerKg: 30, weight: 5 }]);
     setNotes('');
     setSubmitError(null);
-    navigation.navigate('Activity', { newlyCreatedId });
+    if (onDone && newlyCreatedId) {
+      onDone(newlyCreatedId, true);
+    } else {
+      navigation.navigate('Activity', { newlyCreatedId });
+    }
   };
 
   const handleResetForNewOrder = () => {

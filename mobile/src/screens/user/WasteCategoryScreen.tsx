@@ -1,9 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet,
-} from "react-native";
-import { getCategories } from "../../services/waste.service";
-import { WasteCategory } from "../../types/waste";
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native';
+import { getCategories } from '../../services/waste.service';
+import { WasteCategory } from '../../types/waste';
 
 type Props = {
   onSelect?: (category: WasteCategory) => void;
@@ -20,7 +25,7 @@ export default function WasteCategoryScreen({ onSelect }: Props) {
     try {
       setCategories(await getCategories());
     } catch (e) {
-      setError("Could not load categories. Check your connection.");
+      setError('Could not load categories. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -43,7 +48,6 @@ export default function WasteCategoryScreen({ onSelect }: Props) {
     );
   }
 
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What are you recycling?</Text>
@@ -62,14 +66,18 @@ export default function WasteCategoryScreen({ onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, paddingTop: 56, backgroundColor: "#faf8f2" },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: 16, color: "#0f1b3d" },
+  container: { flex: 1, padding: 16, paddingTop: 56, backgroundColor: '#faf8f2' },
+  title: { fontSize: 22, fontWeight: '700', marginBottom: 16, color: '#0f1b3d' },
   card: {
-    flex: 1, margin: 6, paddingVertical: 28, borderRadius: 14,
-    alignItems: "center", backgroundColor: "#eeeacb",
+    flex: 1,
+    margin: 6,
+    paddingVertical: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    backgroundColor: '#eeeacb',
   },
-  cardText: { fontSize: 16, fontWeight: "600", color: "#0f1b3d" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  error: { marginBottom: 12, textAlign: "center" },
-  retry: { padding: 12, borderRadius: 8, backgroundColor: "#eeeacb" },
+  cardText: { fontSize: 16, fontWeight: '600', color: '#0f1b3d' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  error: { marginBottom: 12, textAlign: 'center' },
+  retry: { padding: 12, borderRadius: 8, backgroundColor: '#eeeacb' },
 });

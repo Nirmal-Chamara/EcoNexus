@@ -1,5 +1,4 @@
-// EcoNexus Design System — Color Palette
-// Built around an eco/green identity with dark backgrounds for premium feel
+// EcoNexus Design System: colour palette (light theme, from the module designs)
 
 export const colors = {
   // ── Brand ─────────────────────────────────────
@@ -7,6 +6,7 @@ export const colors = {
   primaryDark: '#047857', // Pressed / deep green
   primaryLight: '#6EE7B7', // Soft accent
   primaryMuted: '#D1FAE5', // Subtle tint
+  lime: '#ACF847', // Highlight buttons ("+ New Waste", Publish)
   mintBackground: '#ECFDF5',
   neutral50: '#F9FAFB',
   neutral100: '#F3F4F6',
@@ -23,6 +23,7 @@ export const colors = {
   background: '#0A0F0D', // Near-black canvas
   surface: '#111A14', // Card / elevated surface
   surfaceAlt: '#182419', // Input fields, alternative surface
+  lavender: '#E2E7FF', // Tabs / chips (inactive)
   border: '#1F3022', // Subtle dividers & input borders
   borderFocus: '#10B981', // Focused input border
 
@@ -36,6 +37,7 @@ export const colors = {
   error: '#F87171',
   errorSurface: '#1C0707',
   warning: '#F59E0B',
+  warningText: '#B26A00',
   warningSurface: '#1C1107',
   success: '#22C55E',
   successSurface: '#071C0D',
