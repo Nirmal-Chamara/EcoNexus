@@ -6,6 +6,7 @@ import userRoutes from './user.routes';
 import adminRoutes from './admin.routes';
 import pickupRoutes from './pickup.routes';
 import collectorRoutes from './collector.routes';
+import recyclingRoutes from './recycling.routes';
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
 router.use('/pickup', pickupRoutes);
 router.use('/collector', collectorRoutes);
+router.use('/recycling', recyclingRoutes);
 
 export default router;
