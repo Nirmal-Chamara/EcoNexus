@@ -12,6 +12,10 @@ import {
 } from '../validators/recycling.validator';
 
 const router = Router();
+
+// Public/user-accessible directory of active recycling centers (FR19 map support)
+router.get('/public/centers', authenticate, requireActive, recyclingController.getPublicCenters);
+
 router.use(authenticate, requireActive, authorize('RECYCLING_CENTER', 'ADMIN'));
 
 // Dashboard summary
