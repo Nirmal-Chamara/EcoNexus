@@ -6,6 +6,8 @@ export const upsertProfileSchema = z.object({
     registration_no: z.string().max(100).optional(),
     contact_phone: z.string().max(20).optional(),
     address_text: z.string().max(500).optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
     total_capacity_kg: z.number().nonnegative().optional(),
     document_url: z.string().url().optional().or(z.literal('')),
   }),

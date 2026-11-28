@@ -18,6 +18,13 @@ export async function upsertProfile(req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 }
 
+export async function getPublicCenters(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const centers = await recyclingService.listPublicCenters();
+    res.json({ success: true, count: centers.length, data: centers });
+  } catch (err) { next(err); }
+}
+
 // ── Verification Status ───────────────────────────────────────────────────────
 
 export async function getVerificationStatus(req: Request, res: Response, next: NextFunction) {

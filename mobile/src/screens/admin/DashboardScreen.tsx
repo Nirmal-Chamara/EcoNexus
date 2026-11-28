@@ -13,11 +13,14 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import EcoNexusLogo from '../../components/common/EcoNexusLogo';
 import { useAuth } from '../../hooks/useAuth';
 import type { AdminTabParamList } from '../../navigation/AdminNavigator';
+import type { AdminDashboardStackParamList } from '../../navigation/AdminStackNavigator';
 import {
   adminService,
   AdminDashboardData,
@@ -26,13 +29,17 @@ import {
 
 const { width } = Dimensions.get('window');
 
-type AdminNavProp = BottomTabNavigationProp<AdminTabParamList>;
+type AdminNavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<AdminDashboardStackParamList, 'DashboardHome'>,
+  BottomTabNavigationProp<AdminTabParamList>
+>;
 
 // Fallback initial/offline data matching the Figma System Overview specs
 const DEFAULT_DASHBOARD_DATA: AdminDashboardData = {
   notice: {
     title: 'OPERATIONAL NOTICE',
-    message: 'Emergency pickup protocol active for Sector 02. Dispatch capacity adjusted by +15% platform-wide.',
+    message:
+      'Emergency pickup protocol active for Sector 02. Dispatch capacity adjusted by +15% platform-wide.',
     severity: 'warning',
     active: true,
   },
@@ -89,16 +96,44 @@ const DEFAULT_DASHBOARD_DATA: AdminDashboardData = {
     },
   ],
   materialVolumeFlow: [
-    { category: 'Plastic Containers (PET & HDPE)', percentage: 34, weightTons: 62.6, color: '#10B981' },
-    { category: 'Paper & Corrugated Cardboard', percentage: 28, weightTons: 51.5, color: '#F59E0B' },
+    {
+      category: 'Plastic Containers (PET & HDPE)',
+      percentage: 34,
+      weightTons: 62.6,
+      color: '#10B981',
+    },
+    {
+      category: 'Paper & Corrugated Cardboard',
+      percentage: 28,
+      weightTons: 51.5,
+      color: '#F59E0B',
+    },
     { category: 'Mixed Glass & Cullet', percentage: 18, weightTons: 33.1, color: '#3B82F6' },
     { category: 'E-Waste & Metal Appliance', percentage: 12, weightTons: 22.1, color: '#8B5CF6' },
     { category: 'Organic & Compostable', percentage: 8, weightTons: 14.7, color: '#EC4899' },
   ],
   sectorClusters: [
-    { name: 'Colombo Central & West', status: 'Normal', efficiency: 92, pickupsRate: '+18/hr', color: '#10B981' },
-    { name: 'Gampaha Trade Corridor', status: 'Heavy', efficiency: 78, pickupsRate: '+32/hr', color: '#F59E0B' },
-    { name: 'Ratnapura Agro Hub', status: 'Bottleneck', efficiency: 42, pickupsRate: '+12/hr', color: '#EF4444' },
+    {
+      name: 'Colombo Central & West',
+      status: 'Normal',
+      efficiency: 92,
+      pickupsRate: '+18/hr',
+      color: '#10B981',
+    },
+    {
+      name: 'Gampaha Trade Corridor',
+      status: 'Heavy',
+      efficiency: 78,
+      pickupsRate: '+32/hr',
+      color: '#F59E0B',
+    },
+    {
+      name: 'Ratnapura Agro Hub',
+      status: 'Bottleneck',
+      efficiency: 42,
+      pickupsRate: '+12/hr',
+      color: '#EF4444',
+    },
   ],
   systemVitality: {
     activeFleetTotal: 72,
@@ -338,7 +373,9 @@ export default function DashboardScreen() {
           <View style={styles.metricCardTop}>
             <Text style={styles.metricLabel}>Facility Network</Text>
             <View style={[styles.pillBadge, styles.pillAmber]}>
-              <Text style={styles.pillAmberText}>{data.metrics.centersNearingCapacity} Near Cap</Text>
+              <Text style={styles.pillAmberText}>
+                {data.metrics.centersNearingCapacity} Near Cap
+              </Text>
             </View>
           </View>
           <Text style={styles.metricValue}>{data.metrics.centerCount} CENTERS</Text>
@@ -358,7 +395,44 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* ── 4. Priority Verifications Queue ──────────────────────────────── */}
+      {/* ── 4. Platform Controls Quick Access ────────────────────────────── */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Platform Controls</Text>
+        </View>
+        <View style={styles.controlsGrid}>
+          <TouchableOpacity
+            style={styles.controlTile}
+            onPress={() => navigation.navigate('Categories')}
+          >
+            <Ionicons name="pricetags-outline" size={20} color="#059669" />
+            <Text style={styles.controlTileText}>Categories</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.controlTile}
+            onPress={() => navigation.navigate('RewardRules')}
+          >
+            <Ionicons name="trophy-outline" size={20} color="#059669" />
+            <Text style={styles.controlTileText}>Reward Rules</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.controlTile}
+            onPress={() => navigation.navigate('Moderation')}
+          >
+            <Ionicons name="flag-outline" size={20} color="#059669" />
+            <Text style={styles.controlTileText}>Moderation</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.controlTile}
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Ionicons name="settings-outline" size={20} color="#059669" />
+            <Text style={styles.controlTileText}>Settings</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── 5. Priority Verifications Queue ──────────────────────────────── */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
@@ -380,7 +454,9 @@ export default function DashboardScreen() {
           <View style={styles.emptyQueueBox}>
             <Ionicons name="checkmark-circle-outline" size={36} color="#10B981" />
             <Text style={styles.emptyQueueTitle}>All queues clear</Text>
-            <Text style={styles.emptyQueueSubtitle}>No pending collector or facility requests.</Text>
+            <Text style={styles.emptyQueueSubtitle}>
+              No pending collector or facility requests.
+            </Text>
           </View>
         ) : (
           data.priorityVerifications.map((item) => {
@@ -434,7 +510,12 @@ export default function DashboardScreen() {
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-sharp" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                        <Ionicons
+                          name="checkmark-sharp"
+                          size={16}
+                          color="#FFFFFF"
+                          style={{ marginRight: 4 }}
+                        />
                         <Text style={styles.approveButtonText}>Approve & Issue ID</Text>
                       </>
                     )}
@@ -444,7 +525,12 @@ export default function DashboardScreen() {
                     style={styles.inspectButton}
                     onPress={() => navigation.navigate('Verifications')}
                   >
-                    <Ionicons name="eye-outline" size={16} color="#475569" style={{ marginRight: 4 }} />
+                    <Ionicons
+                      name="eye-outline"
+                      size={16}
+                      color="#475569"
+                      style={{ marginRight: 4 }}
+                    />
                     <Text style={styles.inspectButtonText}>Review</Text>
                   </TouchableOpacity>
                 </View>
@@ -516,7 +602,9 @@ export default function DashboardScreen() {
               <View style={styles.sectorInfoRow}>
                 <Text style={styles.sectorName}>{sector.name}</Text>
                 <View style={styles.sectorStats}>
-                  <View style={[styles.sectorStatusBadge, { backgroundColor: sector.color + '20' }]}>
+                  <View
+                    style={[styles.sectorStatusBadge, { backgroundColor: sector.color + '20' }]}
+                  >
                     <Text style={[styles.sectorStatusText, { color: sector.color }]}>
                       {sector.status} ({sector.efficiency}%)
                     </Text>
@@ -565,7 +653,12 @@ export default function DashboardScreen() {
         onPress={handleExportReport}
         activeOpacity={0.88}
       >
-        <Ionicons name="document-text-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+        <Ionicons
+          name="document-text-outline"
+          size={20}
+          color="#FFFFFF"
+          style={{ marginRight: 8 }}
+        />
         <Text style={styles.exportReportText}>Export Monthly Sustainability Report (PDF/CSV)</Text>
       </TouchableOpacity>
 
@@ -1189,5 +1282,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#94A3B8',
     marginTop: 4,
+  },
+  controlsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  controlTile: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  controlTileText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });
