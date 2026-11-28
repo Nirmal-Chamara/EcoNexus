@@ -1,11 +1,36 @@
+/* eslint-disable react-native/no-color-literals */
 import React from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import DashboardScreen from '../screens/recycling-center/DashboardScreen';
 import IncomingMaterialsScreen from '../screens/recycling-center/IncomingMaterialsScreen';
 import ProcessingScreen from '../screens/recycling-center/ProcessingScreen';
+import VerificationStatusScreen from '../screens/recycling-center/VerificationStatusScreen';
+import CapacityScreen from '../screens/recycling-center/CapacityScreen';
+import AcceptedCategoriesScreen from '../screens/recycling-center/AcceptedCategoriesScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { TabIcon } from './tabBar';
+
+export type RecyclingOperationsStackParamList = {
+  DashboardMain: undefined;
+  VerificationStatus: undefined;
+  Capacity: undefined;
+  AcceptedCategories: undefined;
+};
+
+const OperationsStack = createNativeStackNavigator<RecyclingOperationsStackParamList>();
+
+function OperationsStackNavigator() {
+  return (
+    <OperationsStack.Navigator screenOptions={{ headerShown: false }}>
+      <OperationsStack.Screen name="DashboardMain" component={DashboardScreen} />
+      <OperationsStack.Screen name="VerificationStatus" component={VerificationStatusScreen} />
+      <OperationsStack.Screen name="Capacity" component={CapacityScreen} />
+      <OperationsStack.Screen name="AcceptedCategories" component={AcceptedCategoriesScreen} />
+    </OperationsStack.Navigator>
+  );
+}
 
 export type RecyclingCenterTabParamList = {
   Dashboard: undefined;
@@ -31,11 +56,16 @@ export default function RecyclingCenterNavigator() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={OperationsStackNavigator}
         options={{
           tabBarLabel: 'Operations',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon={focused ? 'grid' : 'grid-outline'} focused={focused} color={color} size={size} />
+            <TabIcon
+              icon={focused ? 'grid' : 'grid-outline'}
+              focused={focused}
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
@@ -45,7 +75,12 @@ export default function RecyclingCenterNavigator() {
         options={{
           tabBarLabel: 'Intake',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon={focused ? 'cube' : 'cube-outline'} focused={focused} color={color} size={size} />
+            <TabIcon
+              icon={focused ? 'cube' : 'cube-outline'}
+              focused={focused}
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
@@ -55,7 +90,12 @@ export default function RecyclingCenterNavigator() {
         options={{
           tabBarLabel: 'Processing',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon={focused ? 'sync' : 'sync-outline'} focused={focused} color={color} size={size} />
+            <TabIcon
+              icon={focused ? 'sync' : 'sync-outline'}
+              focused={focused}
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
@@ -65,7 +105,12 @@ export default function RecyclingCenterNavigator() {
         options={{
           tabBarLabel: 'Facility Hub',
           tabBarIcon: ({ focused, color, size }) => (
-            <TabIcon icon={focused ? 'business' : 'business-outline'} focused={focused} color={color} size={size} />
+            <TabIcon
+              icon={focused ? 'business' : 'business-outline'}
+              focused={focused}
+              color={color}
+              size={size}
+            />
           ),
         }}
       />
