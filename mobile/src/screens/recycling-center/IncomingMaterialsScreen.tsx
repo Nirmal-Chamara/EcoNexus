@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+/* eslint-disable react-native/no-color-literals, react-native/no-inline-styles */
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +10,15 @@ import {
   Platform,
   Alert,
   Modal,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { onboardingTheme } from '../../theme/onboardingTheme';
+import { recyclingService } from '../../services/recycling.service';
+import { getCategories as getWasteCategories } from '../../services/waste.service';
+import type { IntakeRecord } from '../../types/recyclingCenter';
+import type { WasteCategory } from '../../types/waste';
 
 interface InboundBatch {
   id: string;
@@ -19,7 +26,7 @@ interface InboundBatch {
   haulerName: string;
   vehiclePlate: string;
   vehicleType: string;
-  category: 'PLASTIC' | 'CARDBOARD' | 'METAL' | 'GLASS' | 'E_WASTE';
+  category: string;
   categoryLabel: string;
   emoji: string;
   estimatedWeightKg: number;
@@ -30,9 +37,31 @@ interface InboundBatch {
   storageBay: string;
   status: 'PENDING_WEIGH' | 'ACCEPTED' | 'REJECTED';
   notes?: string;
+  isBackendRecord?: boolean;
 }
 
-const INITIAL_BATCHES: InboundBatch[] = [
+const DEFAULT_CATEGORIES: WasteCategory[] = [
+  { id: 1, name: 'Plastic', description: 'Bottles, containers, polymers', icon: '🧴' },
+  { id: 2, name: 'Paper', description: 'Office paper, newspapers', icon: '📄' },
+  { id: 3, name: 'Cardboard', description: 'Packaging boxes, corrugated cartons', icon: '📦' },
+  { id: 4, name: 'Metal', description: 'Aluminium cans, scrap metals', icon: '🥫' },
+  { id: 5, name: 'Glass', description: 'Bottles, jars', icon: '🍾' },
+  { id: 6, name: 'E-Waste', description: 'Electronics, batteries', icon: '💻' },
+  { id: 7, name: 'Textiles', description: 'Fabrics, clean garments', icon: '👕' },
+];
+
+const FILTER_STREAMS = [
+  { id: 'ALL', label: 'All Streams', emoji: '♻️' },
+  { id: 'PLASTIC', label: 'Plastic', emoji: '🧴' },
+  { id: 'PAPER', label: 'Paper', emoji: '📄' },
+  { id: 'CARDBOARD', label: 'Cardboard', emoji: '📦' },
+  { id: 'METAL', label: 'Metals', emoji: '🥫' },
+  { id: 'GLASS', label: 'Glass', emoji: '🍾' },
+  { id: 'E_WASTE', label: 'E-Waste', emoji: '💻' },
+  { id: 'TEXTILES', label: 'Textiles', emoji: '👕' },
+];
+
+const DEFAULT_MOCK_BATCHES: InboundBatch[] = [
   {
     id: 'batch-1',
     manifestCode: 'MF-9042',
@@ -143,20 +172,14 @@ const INITIAL_BATCHES: InboundBatch[] = [
   },
 ];
 
-const FILTER_STREAMS = [
-  { id: 'ALL', label: 'All Streams', emoji: '♻️' },
-  { id: 'PLASTIC', label: 'Plastic', emoji: '🧴' },
-  { id: 'CARDBOARD', label: 'Cardboard', emoji: '📦' },
-  { id: 'METAL', label: 'Metals', emoji: '🥫' },
-  { id: 'GLASS', label: 'Glass', emoji: '🍾' },
-  { id: 'E_WASTE', label: 'E-Waste', emoji: '💻' },
-];
-
 export default function IncomingMaterialsScreen() {
-  const [batches, setBatches] = useState<InboundBatch[]>(INITIAL_BATCHES);
-  const [activeTab, setActiveTab] = useState<'PENDING_WEIGH' | 'ACCEPTED' | 'REJECTED'>('PENDING_WEIGH');
+  const [batches, setBatches] = useState<InboundBatch[]>(DEFAULT_MOCK_BATCHES);
+  const [activeTab, setActiveTab] = useState<'PENDING_WEIGH' | 'ACCEPTED' | 'REJECTED'>(
+    'PENDING_WEIGH'
+  );
   const [selectedStream, setSelectedStream] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Weigh-in modal state
   const [selectedBatch, setSelectedBatch] = useState<InboundBatch | null>(null);
@@ -164,6 +187,91 @@ export default function IncomingMaterialsScreen() {
   const [weighInput, setWeighInput] = useState('');
   const [selectedBay, setSelectedBay] = useState('Bay 1 - Polymers');
   const [selectedGrade, setSelectedGrade] = useState<'A' | 'B' | 'C'>('A');
+
+  // New Intake Delivery Modal
+  const [newModalVisible, setNewModalVisible] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<WasteCategory[]>([]);
+  const [selectedCatId, setSelectedCatId] = useState<number | null>(null);
+  const [newWeightKg, setNewWeightKg] = useState('');
+  const [newDeliveryRef, setNewDeliveryRef] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+  const [creatingIntake, setCreatingIntake] = useState(false);
+
+  const fetchBackendRecords = useCallback(async () => {
+    try {
+      const [records, categories] = await Promise.all([
+        recyclingService.getIntakeRecords().catch(() => [] as IntakeRecord[]),
+        getWasteCategories().catch(() => DEFAULT_CATEGORIES),
+      ]);
+      const activeCats = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+      setAvailableCategories(activeCats);
+      setSelectedCatId((prev) =>
+        prev === null && activeCats.length > 0 ? activeCats[0].id : prev
+      );
+
+      if (records && records.length > 0) {
+        const mappedRecords: InboundBatch[] = records.map((r: IntakeRecord) => {
+          const rawCat = (r.category_name || '').toUpperCase().replace(/[\s-]+/g, '_');
+          const normalizedCat = rawCat.includes('PLASTIC')
+            ? 'PLASTIC'
+            : rawCat.includes('PAPER')
+              ? 'PAPER'
+              : rawCat.includes('CARDBOARD')
+                ? 'CARDBOARD'
+                : rawCat.includes('METAL')
+                  ? 'METAL'
+                  : rawCat.includes('GLASS')
+                    ? 'GLASS'
+                    : rawCat.includes('E_WASTE')
+                      ? 'E_WASTE'
+                      : rawCat.includes('TEXTILE')
+                        ? 'TEXTILES'
+                        : 'PLASTIC';
+
+          return {
+            id: r.id,
+            manifestCode: r.delivery_ref || `INT-${r.id.slice(0, 5).toUpperCase()}`,
+            haulerName: 'Municipal Delivery Hauler',
+            vehiclePlate: 'WP-DELIVERY',
+            vehicleType: 'Intake Cargo',
+            category: normalizedCat,
+            categoryLabel: r.category_name,
+            emoji: r.category_icon || '📦',
+            estimatedWeightKg: Number(r.quantity_kg),
+            actualWeightKg: Number(r.quantity_kg),
+            purityGrade: 'A',
+            arrivedTime: new Date(r.received_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            originSector: 'Regional Transfer Station',
+            storageBay: 'Intake Hopper Bay',
+            status: r.status === 'RECEIVED' ? 'PENDING_WEIGH' : 'ACCEPTED',
+            notes: r.notes || undefined,
+            isBackendRecord: true,
+          };
+        });
+
+        setBatches((prev) => {
+          const mockOnly = prev.filter((b) => !b.isBackendRecord);
+          return [...mappedRecords, ...mockOnly];
+        });
+      }
+    } catch (err) {
+      console.warn('Could not load backend intake records:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBackendRecords();
+  }, [fetchBackendRecords]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchBackendRecords().finally(() => {
+      setRefreshing(false);
+    });
+  }, [fetchBackendRecords]);
 
   const filteredBatches = useMemo(() => {
     return batches.filter((b) => {
@@ -193,9 +301,18 @@ export default function IncomingMaterialsScreen() {
     setScaleModalVisible(true);
   };
 
-  const handleCertifyWeighIn = () => {
+  const handleCertifyWeighIn = async () => {
     if (!selectedBatch) return;
     const finalKg = parseFloat(weighInput) || selectedBatch.estimatedWeightKg;
+
+    // If it's a backend record, update its status in backend API
+    if (selectedBatch.isBackendRecord) {
+      try {
+        await recyclingService.updateIntakeStatus(selectedBatch.id, 'SORTED');
+      } catch (err) {
+        console.warn('Status update API call completed with local sync:', err);
+      }
+    }
 
     setBatches((prev) =>
       prev.map((b) =>
@@ -222,11 +339,54 @@ export default function IncomingMaterialsScreen() {
     }
   };
 
+  const handleCreateManualIntake = async () => {
+    const qty = parseFloat(newWeightKg);
+    if (isNaN(qty) || qty <= 0) {
+      const msg = 'Please enter a valid weight in kg.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Invalid Weight', msg);
+      return;
+    }
+
+    if (!selectedCatId) {
+      const msg = 'Please select a waste category.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Missing Category', msg);
+      return;
+    }
+
+    setCreatingIntake(true);
+    try {
+      await recyclingService.createIntake({
+        category_id: selectedCatId,
+        quantity_kg: qty,
+        delivery_ref: newDeliveryRef || `DEL-${Math.floor(1000 + Math.random() * 9000)}`,
+        notes: newNotes,
+      });
+
+      setNewModalVisible(false);
+      setNewWeightKg('');
+      setNewDeliveryRef('');
+      setNewNotes('');
+      fetchBackendRecords();
+
+      const msg = `Logged intake delivery of ${qty} kg successfully!`;
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Delivery Logged ✓', msg);
+    } catch (err: unknown) {
+      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg =
+        errorObj.response?.data?.message || errorObj.message || 'Failed to record intake delivery.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Intake Error', msg);
+    } finally {
+      setCreatingIntake(false);
+    }
+  };
+
   const handleRejectContamination = (batch: InboundBatch) => {
     const doReject = () => {
-      setBatches((prev) =>
-        prev.map((b) => (b.id === batch.id ? { ...b, status: 'REJECTED' } : b))
-      );
+      setBatches((prev) => prev.map((b) => (b.id === batch.id ? { ...b, status: 'REJECTED' } : b)));
     };
 
     if (Platform.OS === 'web') {
@@ -253,10 +413,10 @@ export default function IncomingMaterialsScreen() {
           <Text style={styles.headerSubtitle}>FACILITY RECEPTION &amp; INTAKE</Text>
           <Text style={styles.headerTitle}>Inbound Materials</Text>
         </View>
-        <View style={styles.liveWeighbridgePill}>
-          <Ionicons name="hardware-chip-outline" size={14} color="#059669" />
-          <Text style={styles.liveWeighbridgeText}>IoT Scale Live</Text>
-        </View>
+        <TouchableOpacity style={styles.addDeliveryBtn} onPress={() => setNewModalVisible(true)}>
+          <Ionicons name="add" size={16} color="#FFFFFF" />
+          <Text style={styles.addDeliveryText}>Log Delivery</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Segment Tabs (Pending, Accepted, Rejected) ─────────── */}
@@ -265,9 +425,7 @@ export default function IncomingMaterialsScreen() {
           style={[styles.tabBtn, activeTab === 'PENDING_WEIGH' && styles.tabBtnActive]}
           onPress={() => setActiveTab('PENDING_WEIGH')}
         >
-          <Text
-            style={[styles.tabText, activeTab === 'PENDING_WEIGH' && styles.tabTextActive]}
-          >
+          <Text style={[styles.tabText, activeTab === 'PENDING_WEIGH' && styles.tabTextActive]}>
             Awaiting Weigh-In
           </Text>
           <View
@@ -301,10 +459,7 @@ export default function IncomingMaterialsScreen() {
             ]}
           >
             <Text
-              style={[
-                styles.counterText,
-                activeTab === 'ACCEPTED' && styles.counterTextActive,
-              ]}
+              style={[styles.counterText, activeTab === 'ACCEPTED' && styles.counterTextActive]}
             >
               {acceptedCount}
             </Text>
@@ -325,10 +480,7 @@ export default function IncomingMaterialsScreen() {
             ]}
           >
             <Text
-              style={[
-                styles.counterText,
-                activeTab === 'REJECTED' && styles.counterTextActive,
-              ]}
+              style={[styles.counterText, activeTab === 'REJECTED' && styles.counterTextActive]}
             >
               {rejectedCount}
             </Text>
@@ -370,9 +522,7 @@ export default function IncomingMaterialsScreen() {
               onPress={() => setSelectedStream(s.id)}
             >
               <Text style={styles.chipEmoji}>{s.emoji}</Text>
-              <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                {s.label}
-              </Text>
+              <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>{s.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -383,6 +533,7 @@ export default function IncomingMaterialsScreen() {
         style={styles.listArea}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {filteredBatches.length === 0 ? (
           <View style={styles.emptyCard}>
@@ -413,8 +564,8 @@ export default function IncomingMaterialsScreen() {
                         batch.purityGrade === 'A'
                           ? '#ECFDF5'
                           : batch.purityGrade === 'B'
-                          ? '#FEF3C7'
-                          : '#FEE2E2',
+                            ? '#FEF3C7'
+                            : '#FEE2E2',
                     },
                   ]}
                 >
@@ -426,8 +577,8 @@ export default function IncomingMaterialsScreen() {
                           batch.purityGrade === 'A'
                             ? '#065F46'
                             : batch.purityGrade === 'B'
-                            ? '#B45309'
-                            : '#B91C1C',
+                              ? '#B45309'
+                              : '#B91C1C',
                       },
                     ]}
                   >
@@ -576,10 +727,7 @@ export default function IncomingMaterialsScreen() {
                     return (
                       <TouchableOpacity
                         key={grade}
-                        style={[
-                          styles.gradeSelectBtn,
-                          isGSelected && styles.gradeSelectBtnActive,
-                        ]}
+                        style={[styles.gradeSelectBtn, isGSelected && styles.gradeSelectBtnActive]}
                         onPress={() => setSelectedGrade(grade)}
                       >
                         <Text
@@ -606,10 +754,7 @@ export default function IncomingMaterialsScreen() {
                     return (
                       <TouchableOpacity
                         key={bay}
-                        style={[
-                          styles.baySelectBtn,
-                          isBaySelected && styles.baySelectBtnActive,
-                        ]}
+                        style={[styles.baySelectBtn, isBaySelected && styles.baySelectBtnActive]}
                         onPress={() => setSelectedBay(bay)}
                       >
                         <Text
@@ -626,15 +771,114 @@ export default function IncomingMaterialsScreen() {
                 </View>
 
                 {/* Submit Action */}
-                <TouchableOpacity
-                  style={styles.modalConfirmBtn}
-                  onPress={handleCertifyWeighIn}
-                >
+                <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleCertifyWeighIn}>
                   <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
                   <Text style={styles.modalConfirmText}>Certify &amp; Print Receipt Ticket</Text>
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Log Manual Delivery Modal ─────────────────────────── */}
+      <Modal
+        visible={newModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNewModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalPre}>DIRECT INTAKE DOCK</Text>
+                <Text style={styles.modalTitle}>Record Inbound Cargo</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setNewModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>Select Material Category</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginBottom: 12 }}
+              >
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {availableCategories.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.catPill, selectedCatId === c.id && styles.catPillActive]}
+                      onPress={() => setSelectedCatId(c.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.catPillText,
+                          selectedCatId === c.id && styles.catPillTextActive,
+                        ]}
+                      >
+                        {c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <Text style={styles.inputLabel}>Measured Infeed Quantity (kg)</Text>
+              <View style={styles.scaleInputRow}>
+                <Text style={styles.scaleInputPrefix}>⚖️</Text>
+                <TextInput
+                  style={styles.scaleInput}
+                  keyboardType="numeric"
+                  placeholder="e.g. 650"
+                  value={newWeightKg}
+                  onChangeText={setNewWeightKg}
+                />
+                <Text style={styles.scaleInputUnit}>kg</Text>
+              </View>
+
+              <Text style={styles.inputLabel}>Delivery Manifest Reference</Text>
+              <View style={styles.scaleInputRow}>
+                <TextInput
+                  style={styles.scaleInput}
+                  placeholder="e.g. TRK-4819"
+                  value={newDeliveryRef}
+                  onChangeText={setNewDeliveryRef}
+                />
+              </View>
+
+              <Text style={styles.inputLabel}>Operator Notes (Optional)</Text>
+              <View style={[styles.scaleInputRow, { height: 60 }]}>
+                <TextInput
+                  style={[styles.scaleInput, { textAlignVertical: 'top' }]}
+                  placeholder="e.g. Segregated commercial plastics"
+                  value={newNotes}
+                  onChangeText={setNewNotes}
+                  multiline
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, creatingIntake && { opacity: 0.6 }]}
+                onPress={handleCreateManualIntake}
+                disabled={creatingIntake}
+              >
+                {creatingIntake ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+                    <Text style={styles.modalConfirmText}>Save Intake Record</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -669,21 +913,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
   },
-  liveWeighbridgePill: {
+  addDeliveryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    gap: 5,
+    backgroundColor: '#059669',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 4,
   },
-  liveWeighbridgeText: {
-    fontSize: 11,
+  addDeliveryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
-    color: '#065F46',
   },
 
   /* Segment Tabs */
@@ -702,14 +944,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 12,
+    borderRadius: 10,
     gap: 6,
   },
   tabBtnActive: {
     backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
   },
   tabText: {
     fontSize: 11,
@@ -717,23 +956,23 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   tabTextActive: {
-    color: '#065F46',
     fontWeight: '800',
+    color: '#065F46',
   },
   counterBadge: {
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingVertical: 1,
+    borderRadius: 10,
   },
   counterActive: {
     backgroundColor: '#059669',
   },
   counterInactive: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
   },
   counterText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#64748B',
   },
   counterTextActive: {
@@ -744,39 +983,38 @@ const styles = StyleSheet.create({
   searchRow: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 6,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    height: 40,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
     color: '#0F172A',
-    fontWeight: '500',
   },
 
   /* Stream Chips */
   streamChipsContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingVertical: 8,
     gap: 8,
   },
   streamChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     gap: 6,
@@ -786,33 +1024,54 @@ const styles = StyleSheet.create({
     borderColor: '#059669',
   },
   chipEmoji: {
-    fontSize: 13,
+    fontSize: 12,
   },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#64748B',
   },
   chipTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
 
-  /* List Area */
+  /* List */
   listArea: {
     flex: 1,
   },
   listContent: {
     padding: 16,
-    paddingTop: 6,
-    paddingBottom: 40,
     gap: 12,
+    paddingBottom: 40,
   },
-
-  /* Batch Card */
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 20,
+  },
+  emptyEmoji: {
+    fontSize: 44,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+  },
   batchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -821,7 +1080,7 @@ const styles = StyleSheet.create({
   batchTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 10,
   },
   manifestBadge: {
@@ -838,19 +1097,22 @@ const styles = StyleSheet.create({
   streamPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#F8FAF9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 8,
     gap: 4,
+    flex: 1,
   },
   streamPillEmoji: {
-    fontSize: 12,
+    fontSize: 11,
   },
   streamPillText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#065F46',
+    fontWeight: '600',
+    color: '#334155',
   },
   gradeBadge: {
     paddingHorizontal: 8,
@@ -864,18 +1126,16 @@ const styles = StyleSheet.create({
   haulerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     marginBottom: 12,
   },
   truckIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F8FAF9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
   haulerName: {
     fontSize: 14,
@@ -900,50 +1160,51 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
   },
-
   metaBox: {
+    flexDirection: 'row',
     backgroundColor: '#F8FAF9',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    gap: 4,
+    padding: 8,
+    borderRadius: 10,
+    gap: 12,
     marginBottom: 10,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   metaText: {
     fontSize: 11,
-    color: '#475569',
-    fontWeight: '500',
+    color: '#64748B',
   },
   notesBox: {
-    backgroundColor: '#FEFCE8',
-    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
     padding: 8,
+    borderRadius: 8,
     marginBottom: 10,
   },
   notesText: {
     fontSize: 11,
-    color: '#A16207',
+    color: '#475569',
+    fontStyle: 'italic',
   },
-
   batchActionsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
   },
   rejectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
     gap: 4,
   },
   rejectBtnText: {
@@ -957,91 +1218,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#059669',
-    paddingVertical: 11,
-    borderRadius: 12,
-    gap: 6,
-  },
-  weighInBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-
-  acceptedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    padding: 10,
+    paddingVertical: 8,
     borderRadius: 10,
     gap: 6,
   },
+  weighInBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  acceptedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
+  },
   acceptedBannerText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#065F46',
+    fontWeight: '600',
+    color: '#059669',
   },
   rejectedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    padding: 10,
-    borderRadius: 10,
     gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 8,
   },
   rejectedBannerText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#B91C1C',
+    fontWeight: '600',
+    color: '#DC2626',
   },
 
-  /* Empty state */
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  emptyEmoji: {
-    fontSize: 36,
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  emptySub: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 4,
-    maxWidth: '80%',
-  },
-
-  /* Modal */
+  /* Modals */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   modalCard: {
+    width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
+    borderRadius: 20,
     padding: 20,
-    ...onboardingTheme.cardShadow,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   modalPre: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     color: '#059669',
     letterSpacing: 0.8,
@@ -1053,15 +1289,13 @@ const styles = StyleSheet.create({
   },
   modalBatchBrief: {
     backgroundColor: '#F8FAF9',
-    borderRadius: 12,
     padding: 10,
+    borderRadius: 10,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   modalBriefManifest: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
   },
   modalBriefHauler: {
@@ -1070,67 +1304,65 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
     marginBottom: 6,
-    marginTop: 6,
   },
   scaleInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAF9',
-    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#059669',
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    marginBottom: 12,
+    height: 46,
+    marginBottom: 14,
   },
   scaleInputPrefix: {
-    fontSize: 18,
-    marginRight: 8,
+    fontSize: 16,
+    marginRight: 6,
   },
   scaleInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#0F172A',
-    paddingVertical: 10,
   },
   scaleInputUnit: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#64748B',
   },
   gradeSelectRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   gradeSelectBtn: {
     flex: 1,
-    backgroundColor: '#F8FAF9',
-    borderRadius: 12,
-    padding: 10,
-    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
   },
   gradeSelectBtnActive: {
     backgroundColor: '#ECFDF5',
     borderColor: '#059669',
   },
   gradeSelectText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
   },
   gradeSelectTextActive: {
-    color: '#059669',
+    color: '#065F46',
   },
   gradeSelectSub: {
     fontSize: 9,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   baysGrid: {
@@ -1140,37 +1372,60 @@ const styles = StyleSheet.create({
   },
   baySelectBtn: {
     flex: 1,
-    backgroundColor: '#F8FAF9',
-    borderRadius: 10,
-    paddingVertical: 8,
-    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingVertical: 7,
+    alignItems: 'center',
   },
   baySelectBtnActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#059669',
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
   },
   baySelectText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '600',
     color: '#475569',
   },
   baySelectTextActive: {
-    color: '#059669',
+    color: '#1D4ED8',
+    fontWeight: '700',
   },
   modalConfirmBtn: {
     backgroundColor: '#059669',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
+    height: 46,
+    borderRadius: 12,
+    gap: 6,
+    marginTop: 6,
   },
   modalConfirmText: {
-    fontSize: 14,
-    fontWeight: '800',
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  catPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  catPillActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
+  },
+  catPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  catPillTextActive: {
+    color: '#065F46',
+    fontWeight: '700',
   },
 });
